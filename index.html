@@ -96,6 +96,17 @@
           <input id="searchInput" type="text" placeholder="Nom ou numéro..." autocomplete="off">
           <div id="searchResults" class="results-list"></div>
         </article>
+        <article class="card glass">
+          <div class="card-head">
+            <h2>Toutes mes notes</h2>
+            <select id="notesSortSelect" class="notes-sort">
+              <option value="recent">Plus récentes</option>
+              <option value="surah">Par sourate</option>
+              <option value="favorites">Favoris</option>
+            </select>
+          </div>
+          <div id="allNotesList" class="notes-list"></div>
+        </article>
       </section>
 
       <section class="view" id="view-profil" data-title="Profil">
@@ -174,8 +185,28 @@
   </div>
 
   <div id="toast" class="toast hidden"></div>
+  <div id="saveIndicator" class="save-indicator hidden">Donnees sauvegardees</div>
+  <div id="achievementStack" class="achievement-stack"></div>
   <div id="confettiContainer"></div>
 
-  <script src="app.js"></script>
+  <div class="modal-backdrop hidden" id="notesModal">
+    <div class="modal glass">
+      <div class="modal-header">
+        <h3 id="notesModalTitle">Notes de sourate</h3>
+        <button id="closeNotesBtn" class="icon-btn">✖</button>
+      </div>
+      <div class="settings-list">
+        <label class="setting-item">
+          <span>Favori</span>
+          <input type="checkbox" id="noteFavoriteToggle">
+        </label>
+        <textarea id="noteInput" rows="4" placeholder="Ajouter une note..." class="note-input"></textarea>
+        <button class="primary-btn" id="saveNoteBtn">Enregistrer la note</button>
+      </div>
+      <div id="surahNotesList" class="notes-list"></div>
+    </div>
+  </div>
+
+  <script type="module" src="main.js"></script>
 </body>
 </html>

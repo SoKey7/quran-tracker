@@ -317,6 +317,17 @@ button {
   background: rgba(208, 98, 98, 0.2);
 }
 
+.result-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.note-mini-btn {
+  white-space: nowrap;
+  padding: 8px 10px;
+}
+
 .widgets-grid,
 .badges-grid {
   display: grid;
@@ -468,6 +479,90 @@ button {
   display: none;
 }
 
+.note-input {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  padding: 12px;
+  resize: vertical;
+}
+
+.notes-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.note-item {
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 10px;
+}
+
+.notes-sort {
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  padding: 6px 8px;
+}
+
+.achievement-stack {
+  position: fixed;
+  top: calc(10px + env(safe-area-inset-top));
+  left: 0;
+  right: 0;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  z-index: 80;
+  pointer-events: none;
+}
+
+.achievement-banner {
+  width: min(90%, 560px);
+  border-radius: 14px;
+  background: linear-gradient(120deg, rgba(24, 160, 106, 0.95), rgba(216, 185, 113, 0.9));
+  color: #08150f;
+  padding: 10px 12px;
+  box-shadow: var(--shadow);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: auto;
+  animation: slide-down 240ms ease-out;
+}
+
+.achievement-close {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.save-indicator {
+  position: fixed;
+  right: 12px;
+  bottom: calc(80px + env(safe-area-inset-bottom));
+  z-index: 70;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(24, 160, 106, 0.92);
+  color: #eafff6;
+  font-size: 0.8rem;
+}
+
+.pulse-save {
+  animation: pulse-save 800ms ease-out;
+}
+
+.reading-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
 .hidden {
   display: none !important;
 }
@@ -503,6 +598,17 @@ button {
 @keyframes fall {
   0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
   100% { transform: translateY(110vh) rotate(560deg); opacity: 0; }
+}
+
+@keyframes slide-down {
+  from { transform: translateY(-20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes pulse-save {
+  0% { transform: scale(0.98); opacity: 0.4; }
+  40% { transform: scale(1.03); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 @media (min-width: 700px) {
