@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0f1a16">
+  <meta name="description" content="Quran Tracker - Suivi gamifié de lecture du Coran">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180"><rect width="180" height="180" rx="38" fill="%230f1a16"/><circle cx="90" cy="90" r="56" fill="%2318a06a"/><text x="90" y="102" text-anchor="middle" font-size="58" fill="%23f7f0d8" font-family="Arial">Q</text></svg>'>
+  <title>Quran Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <header class="top-header glass">
+      <div class="header-main">
+        <div class="prestige-badge" id="prestigeBadge">⭐ Prestige 0</div>
+        <h1 id="pageTitle">Accueil</h1>
+        <button class="avatar-btn" id="settingsOpenBtn" aria-label="Ouvrir les réglages">
+          <img id="profileAvatar" alt="Avatar" src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80"><rect width="80" height="80" rx="40" fill="%2318a06a"/><circle cx="40" cy="30" r="14" fill="%23f7f0d8"/><rect x="20" y="48" width="40" height="20" rx="10" fill="%23f7f0d8"/></svg>'>
+          <span class="settings-dot">⚙️</span>
+        </button>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-label">
+          <span id="progressText">0 / 114</span>
+          <span id="progressPercent">0%</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="globalProgressFill"></div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="view active" id="view-prier" data-title="Prier">
+        <article class="card glass">
+          <h2>Commencer la lecture du jour</h2>
+          <p class="muted">Choisis une durée et génère une lecture adaptée à ta progression.</p>
+          <div class="time-options" id="timeOptions">
+            <button class="time-btn active" data-minutes="10">10 min</button>
+            <button class="time-btn" data-minutes="20">20 min</button>
+            <button class="time-btn" data-minutes="30">30 min</button>
+          </div>
+          <button class="primary-btn" id="generateBtn">Générer ma lecture</button>
+        </article>
+
+        <article class="card glass" id="dailyReadingCard">
+          <div class="card-head">
+            <h3>Lecture du jour</h3>
+            <span class="streak" id="streakLabel">🔥 0 jours</span>
+          </div>
+          <ul class="reading-list" id="dailyReadingList">
+            <li class="muted">Aucune lecture générée.</li>
+          </ul>
+          <button class="success-btn" id="completeBtn" disabled>J'ai terminé</button>
+        </article>
+
+        <article class="card quote-card glass">
+          <h3>Citation motivante</h3>
+          <p id="quoteText"></p>
+        </article>
+      </section>
+
+      <section class="view" id="view-accueil" data-title="Accueil">
+        <article class="card glass">
+          <h2>Historique des lectures</h2>
+          <div id="timeline" class="timeline"></div>
+        </article>
+      </section>
+
+      <section class="view" id="view-marquer" data-title="Marquer">
+        <article class="card glass">
+          <h2>Rechercher une sourate</h2>
+          <input id="searchInput" type="text" placeholder="Nom ou numéro..." autocomplete="off">
+          <div id="searchResults" class="results-list"></div>
+        </article>
+      </section>
+
+      <section class="view" id="view-profil" data-title="Profil">
+        <article class="card glass">
+          <h2>Progression</h2>
+          <p class="big-number" id="profileProgressText">0 / 114</p>
+          <p class="muted" id="profileProgressPercent">0%</p>
+        </article>
+
+        <article class="card glass">
+          <h2>Statistiques</h2>
+          <ul class="stats-list">
+            <li><span>Temps total estimé</span><strong id="statTotalTime">0 min</strong></li>
+            <li><span>Sessions totales</span><strong id="statSessions">0</strong></li>
+            <li><span>Moyenne / jour</span><strong id="statAvgDay">0 min</strong></li>
+            <li><span>Série actuelle 🔥</span><strong id="statStreak">0</strong></li>
+            <li><span>Dernière lecture</span><strong id="statLastRead">Aucune</strong></li>
+          </ul>
+        </article>
+
+        <article class="card glass">
+          <h2>Prestige</h2>
+          <p class="big-number" id="statPrestige">Prestige 0</p>
+          <p class="muted">Cycles complets terminés : <span id="statCycles">0</span></p>
+        </article>
+
+        <article class="card glass">
+          <button class="danger-btn" id="manualResetBtn">Reset manuel (lectures)</button>
+        </article>
+      </section>
+    </main>
+
+    <footer class="bottom-nav glass">
+      <button class="nav-btn active" data-view="prier">🕊️<span>Prier</span></button>
+      <button class="nav-btn" data-view="accueil">🏠<span>Accueil</span></button>
+      <button class="nav-btn" data-view="marquer">✅<span>Marquer</span></button>
+      <button class="nav-btn" data-view="profil">👤<span>Profil</span></button>
+    </footer>
+  </div>
+
+  <div class="modal-backdrop hidden" id="settingsModal">
+    <div class="modal glass">
+      <div class="modal-header">
+        <h3>Réglages</h3>
+        <button id="closeSettingsBtn" class="icon-btn">✖</button>
+      </div>
+      <div class="settings-list">
+        <label class="setting-item"><span>Thème clair</span><input type="checkbox" id="themeToggle"></label>
+        <label class="setting-item"><span>Vibration</span><input type="checkbox" id="vibrationToggle"></label>
+        <label class="setting-item"><span>Animations</span><input type="checkbox" id="animationToggle"></label>
+        <label class="setting-item"><span>Sons légers</span><input type="checkbox" id="soundToggle"></label>
+        <button class="secondary-btn" id="exportBtn">Exporter données JSON</button>
+        <label class="secondary-btn import-label">Importer données JSON<input type="file" id="importInput" accept="application/json"></label>
+        <button class="danger-btn" id="hardResetBtn">Reset complet</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <div id="confettiContainer"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
