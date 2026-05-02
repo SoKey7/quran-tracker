@@ -1,4 +1,4 @@
-import { loadAppData, saveAppData, TOTAL_SURAHS } from "./storage.js";
+import { loadAppData, saveAppData, TOTAL_SURAHS, validateData } from "./storage.js";
 import { addNote, deleteNote, updateNote } from "./notes.js";
 import { evaluateBadges } from "./badges.js";
 import { markSurahAsRead, markSurahAsUnread } from "./history.js";
@@ -11,6 +11,7 @@ import {
   renderHistory,
   renderProfile,
   renderSearchResults,
+  renderMonthlyHeatmap,
   renderSurahNotesList,
   renderTop,
   showAchievementBanner,
@@ -186,6 +187,8 @@ function render() {
   renderHistory(state.data, surahMap);
   renderProfile(state.data, TOTAL_SURAHS);
   renderBadges(state.data);
+  renderMonthlyHeatmap(state.data, "heatmapRoot", showToast);
+  renderMonthlyHeatmap(state.data, "heatmapProfileRoot", showToast);
   renderAllNotes(state.data, surahMap, document.getElementById("notesSortSelect").value || "recent");
   document.body.classList.toggle("light", state.data.settings.theme === "light");
   document.getElementById("themeToggle").checked = state.data.settings.theme === "light";
@@ -194,6 +197,22 @@ function render() {
   document.getElementById("soundToggle").checked = !!state.data.settings.sound;
   document.getElementById("notificationsToggle").checked = !!state.data.settings.notifications.enabled;
   document.getElementById("notificationTimeInput").value = state.data.settings.notifications.time || "20:00";
+}
+
+function runFullReset() {
+  if (!confirm("Es-tu sûr ?")) return;
+  if (!confirm("Cette action supprimera progression, historique, notes et série.")) return;
+  const keepPrestige = confirm("Conserver le prestige actuel ? OK = conserver, Annuler = remettre à 0.");
+  const previousPrestige = state.data.prestige || 0;
+  state.data = validateData({});
+  if (keepPrestige) state.data.prestige = previousPrestige;
+  state.currentPlan = [];
+  state.query = "";
+  state.activeNoteSurahId = null;
+  state.activeEditNoteId = null;
+  persist();
+  render();
+  showToast("Réinitialisation terminée.");
 }
 
 function bindEvents() {
@@ -251,6 +270,7 @@ function bindEvents() {
     persist();
     render();
   });
+  document.getElementById("hardResetAllBtn").addEventListener("click", runFullReset);
   document.getElementById("hardResetBtn").addEventListener("click", () => {
     if (!confirm("Supprimer toutes les donnees locales ?")) return;
     localStorage.removeItem("quranTrackerData");

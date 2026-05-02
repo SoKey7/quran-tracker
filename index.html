@@ -134,7 +134,15 @@
         </article>
 
         <article class="card glass">
+          <h2>Activité mensuelle</h2>
+          <div class="heatmap-wrap">
+            <div id="heatmapProfileRoot" class="heatmap-grid"></div>
+          </div>
+        </article>
+
+        <article class="card glass">
           <button class="danger-btn" id="manualResetBtn">Reset manuel (lectures)</button>
+          <button class="danger-btn" id="hardResetAllBtn">Réinitialiser totalement</button>
         </article>
       </section>
     </main>
@@ -162,7 +170,7 @@
         <label class="setting-item"><span>Heure notification</span><input type="time" id="notificationTimeInput"></label>
         <button class="secondary-btn" id="exportBtn">Exporter données JSON</button>
         <label class="secondary-btn import-label">Importer données JSON<input type="file" id="importInput" accept="application/json"></label>
-        <button class="danger-btn" id="hardResetBtn">Reset complet</button>
+        <button class="danger-btn" id="hardResetBtn">Reset complet (local)</button>
       </div>
     </div>
   </div>

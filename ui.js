@@ -74,8 +74,12 @@ export function renderSearchResults(data, surahs, query, actions) {
         <div class="muted">${s.categorie} ${noteCount ? `• 📝 ${noteCount}` : ""}</div>
       </div>
       <div class="result-actions">
-        <button class="secondary-btn note-mini-btn">📝 Ajouter une note</button>
-        <button class="${isRead ? "remove" : ""}">${isRead ? "Retirer" : "Marquer lue"}</button>
+        <button class="secondary-btn action-btn note-mini-btn" title="📝 Ajouter une note" aria-label="Ajouter une note">
+          <span class="action-icon">📝</span><span class="action-label">Ajouter une note</span>
+        </button>
+        <button class="action-btn ${isRead ? "remove" : ""}" title="${isRead ? "↩️ Retirer lu" : "✅ Marquer comme lu"}" aria-label="${isRead ? "Retirer lu" : "Marquer comme lu"}">
+          <span class="action-icon">${isRead ? "↩️" : "✅"}</span><span class="action-label">${isRead ? "Retirer" : "Marquer lu"}</span>
+        </button>
       </div>
     `;
     const [noteBtn, markBtn] = row.querySelectorAll("button");
@@ -102,7 +106,9 @@ export function renderDailyReading(data, actions) {
         <div>
           <strong>${s.numero}. ${s.nomFr}</strong><br><span class="muted">${s.categorie} ${noteCount ? `• 📝 ${noteCount}` : ""}</span>
         </div>
-        <button class="secondary-btn note-mini-btn">📝 Ajouter une note</button>
+        <button class="secondary-btn action-btn note-mini-btn" title="📝 Ajouter une note" aria-label="Ajouter une note">
+          <span class="action-icon">📝</span><span class="action-label">Ajouter une note</span>
+        </button>
       </div>
     `;
     li.querySelector("button").addEventListener("click", () => actions.onNote(s.numero));
@@ -198,8 +204,8 @@ export function renderSurahNotesList(data, surahId, handlers) {
       <div>${note.text}</div>
       <div class="muted">${new Date(note.createdAt).toLocaleString("fr-FR")} ${note.favorite ? "• ⭐ Favori" : ""}</div>
       <div class="result-actions">
-        <button class="secondary-btn">Modifier</button>
-        <button class="danger-btn">Supprimer</button>
+        <button class="secondary-btn action-btn" title="Modifier la note" aria-label="Modifier la note"><span class="action-icon">✏️</span><span class="action-label">Modifier</span></button>
+        <button class="danger-btn action-btn" title="🗑️ Supprimer la note" aria-label="Supprimer la note"><span class="action-icon">🗑️</span><span class="action-label">Supprimer</span></button>
       </div>
     `;
     const [editBtn, delBtn] = row.querySelectorAll("button");
@@ -207,4 +213,31 @@ export function renderSurahNotesList(data, surahId, handlers) {
     delBtn.addEventListener("click", () => handlers.onDelete(note.id));
     root.appendChild(row);
   });
+}
+
+export function renderMonthlyHeatmap(data, rootId, onCellClick) {
+  const root = document.getElementById(rootId);
+  if (!root) return;
+  root.innerHTML = "";
+  const map = new Map();
+  getValidHistory(data).forEach((entry) => {
+    if (entry.action !== "read") return;
+    const day = String(entry.date).slice(0, 10);
+    map.set(day, (map.get(day) || 0) + 1);
+  });
+  const now = new Date();
+  const days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  for (let d = 1; d <= days; d++) {
+    const date = new Date(now.getFullYear(), now.getMonth(), d);
+    const key = date.toISOString().slice(0, 10);
+    const count = map.get(key) || 0;
+    const level = count >= 5 ? 4 : count >= 3 ? 3 : count >= 1 ? 2 : 0;
+    const cell = document.createElement("button");
+    cell.type = "button";
+    cell.className = "heatmap-cell";
+    cell.dataset.level = String(level);
+    cell.title = `${date.toLocaleDateString("fr-FR")} • ${count} lecture(s)`;
+    cell.addEventListener("click", () => onCellClick(`${date.toLocaleDateString("fr-FR")}\n${count} lecture${count > 1 ? "s" : ""}`));
+    root.appendChild(cell);
+  }
 }
