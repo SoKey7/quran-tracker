@@ -1,4 +1,4 @@
-import { loadAppData, saveAppData, TOTAL_SURAHS, validateData } from "./storage.js";
+import { clearAll, loadAppData, saveAppData, TOTAL_SURAHS, validateData } from "./storage.js";
 import { addNote, deleteNote, updateNote } from "./notes.js";
 import { evaluateBadges } from "./badges.js";
 import { markSurahAsRead, markSurahAsUnread } from "./history.js";
@@ -39,6 +39,18 @@ const surahs = Array.from({ length: TOTAL_SURAHS }, (_, i) => {
   return { numero, nomFr: SURAH_NAMES_FR[i], categorie };
 });
 const surahMap = new Map(surahs.map((s) => [s.numero, s]));
+const QUOTES = [
+  "La patience est une lumiere.",
+  "Cherche la connaissance, du berceau jusqu'a la tombe.",
+  "Les ames sont comme des armees rassemblees.",
+  "Celui qui ne remercie pas les hommes ne remercie pas Dieu.",
+  "L'encre du savant vaut mieux que le sang du martyr.",
+  "Chaque verset lu adoucit le coeur.",
+  "La constance vaut mieux qu'un grand elan sans suite.",
+  "Lis avec sincerite, meme peu, mais chaque jour.",
+  "La guidance vient avec l'effort et l'humilite.",
+  "Le meilleur des actes est celui qui dure."
+];
 
 const state = {
   data: loadAppData(),
@@ -52,6 +64,12 @@ const state = {
 function persist() {
   state.data = saveAppData(state.data);
   showSaveSuccess();
+}
+
+function setRandomQuote() {
+  const quote = QUOTES[Math.floor(Math.random() * QUOTES.length)];
+  const el = document.getElementById("quoteText");
+  if (el) el.textContent = quote;
 }
 
 function switchView(viewName) {
@@ -200,19 +218,95 @@ function render() {
 }
 
 function runFullReset() {
-  if (!confirm("Es-tu sûr ?")) return;
-  if (!confirm("Cette action supprimera progression, historique, notes et série.")) return;
-  const keepPrestige = confirm("Conserver le prestige actuel ? OK = conserver, Annuler = remettre à 0.");
-  const previousPrestige = state.data.prestige || 0;
+  if (!confirm("Es-tu sûr de vouloir réinitialiser ?")) return;
+  const keepNotes = confirm("Veux-tu conserver tes notes ? (Oui / Non)");
+  const notesBackup = keepNotes ? JSON.parse(JSON.stringify(state.data.notes || {})) : {};
+  clearAll();
   state.data = validateData({});
-  if (keepPrestige) state.data.prestige = previousPrestige;
+  state.data.notes = notesBackup;
   state.currentPlan = [];
   state.query = "";
   state.activeNoteSurahId = null;
   state.activeEditNoteId = null;
   persist();
-  render();
   showToast("Réinitialisation terminée.");
+  window.location.reload();
+}
+
+async function requestNotificationPermission() {
+  if (!("Notification" in window)) return "unsupported";
+  if (Notification.permission === "granted") return "granted";
+  return Notification.requestPermission();
+}
+
+function updateNotificationStatus() {
+  const el = document.getElementById("notificationStatusText");
+  if (!el) return;
+  if (!("Notification" in window)) {
+    el.textContent = "Indisponible (installer l'app PWA iOS)";
+    return;
+  }
+  if (Notification.permission === "granted") el.textContent = "Accordee";
+  else if (Notification.permission === "denied") el.textContent = "Refusee (PWA iOS requise)";
+  else el.textContent = "En attente";
+}
+
+async function sendNotificationNow() {
+  if (!("serviceWorker" in navigator)) return;
+  const reg = await navigator.serviceWorker.getRegistration();
+  if (reg?.active) {
+    reg.active.postMessage({
+      type: "SCHEDULE_NOTIFICATION",
+      when: Date.now() + 100,
+      title: "Quran Tracker",
+      body: "Il est temps de lire aujourd'hui 📖🔥",
+      icon: "icon-192.png"
+    });
+  }
+}
+
+async function ensureDailyNotificationScheduling() {
+  if (!state.data.settings.notifications.enabled) return;
+  const perm = await requestNotificationPermission();
+  updateNotificationStatus();
+  if (perm !== "granted") {
+    showToast("Notifications indisponibles. Sur iOS, installez l'app en PWA.");
+    return;
+  }
+  const [h, m] = (state.data.settings.notifications.time || "20:00").split(":").map(Number);
+  const now = new Date();
+  const target = new Date();
+  target.setHours(Number.isFinite(h) ? h : 20, Number.isFinite(m) ? m : 0, 0, 0);
+  const today = now.toISOString().slice(0, 10);
+  const alreadyReadToday = state.data.history.some((e) => e.valid && e.date.slice(0, 10) === today);
+  if (now >= target && !alreadyReadToday && state.data.settings.notifications.lastSentDate !== today) {
+    await sendNotificationNow();
+    state.data.settings.notifications.lastSentDate = today;
+    persist();
+    return;
+  }
+  if ("serviceWorker" in navigator) {
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (reg?.active) {
+      if (target <= now) target.setDate(target.getDate() + 1);
+      reg.active.postMessage({
+        type: "SCHEDULE_NOTIFICATION",
+        when: target.getTime(),
+        title: "Quran Tracker",
+        body: "Il est temps de lire aujourd'hui 📖🔥",
+        icon: "icon-192.png"
+      });
+    }
+  }
+}
+
+async function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  try {
+    await navigator.serviceWorker.register("./service-worker.js");
+  } catch {
+    showToast("Service Worker indisponible.");
+  }
 }
 
 function bindEvents() {
@@ -258,24 +352,23 @@ function bindEvents() {
   document.getElementById("notificationsToggle").addEventListener("change", (e) => {
     state.data.settings.notifications.enabled = e.target.checked;
     persist();
+    ensureDailyNotificationScheduling();
   });
   document.getElementById("notificationTimeInput").addEventListener("change", (e) => {
     state.data.settings.notifications.time = e.target.value || "20:00";
     persist();
+    ensureDailyNotificationScheduling();
   });
-  document.getElementById("manualResetBtn").addEventListener("click", () => {
-    if (!confirm("Reinitialiser les lectures du cycle ?")) return;
-    state.data.progress.readSurahs = [];
-    state.data.progress.readCount = 0;
-    persist();
-    render();
+  document.getElementById("testNotificationBtn").addEventListener("click", async () => {
+    const perm = await requestNotificationPermission();
+    updateNotificationStatus();
+    if (perm !== "granted") return showToast("Permission non accordee.");
+    await sendNotificationNow();
+    showToast("Notification de test envoyee.");
   });
+  document.getElementById("manualResetBtn").addEventListener("click", runFullReset);
   document.getElementById("hardResetAllBtn").addEventListener("click", runFullReset);
-  document.getElementById("hardResetBtn").addEventListener("click", () => {
-    if (!confirm("Supprimer toutes les donnees locales ?")) return;
-    localStorage.removeItem("quranTrackerData");
-    location.reload();
-  });
+  document.getElementById("hardResetBtn").addEventListener("click", runFullReset);
   document.getElementById("exportBtn").addEventListener("click", () => {
     const blob = new Blob([JSON.stringify(state.data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -338,3 +431,15 @@ function launchConfetti(count) {
 evaluateBadges(state.data, showAchievementBanner);
 bindEvents();
 render();
+setRandomQuote();
+updateNotificationStatus();
+(async () => {
+  await registerServiceWorker();
+  await ensureDailyNotificationScheduling();
+})();
+try {
+  const raw = localStorage.getItem("quranTrackerData");
+  if (raw) JSON.parse(raw);
+} catch {
+  showToast("Donnees restaurees depuis la sauvegarde");
+}

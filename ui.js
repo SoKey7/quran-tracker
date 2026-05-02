@@ -37,10 +37,8 @@ function flushBannerQueue() {
   const card = document.createElement("div");
   card.className = "achievement-banner";
   card.innerHTML = `
-    <div><strong>${item.icon} ${item.title}</strong><div class="muted">${item.subtitle}</div></div>
-    <button class="icon-btn achievement-close" aria-label="Fermer">✕</button>
+    <div><strong>${item.icon} ${item.title}</strong><div>${item.subtitle}</div></div>
   `;
-  card.querySelector(".achievement-close").addEventListener("click", () => card.remove());
   stack.prepend(card);
   bannerTimer = setTimeout(() => {
     card.remove();
@@ -74,8 +72,8 @@ export function renderSearchResults(data, surahs, query, actions) {
         <div class="muted">${s.categorie} ${noteCount ? `• 📝 ${noteCount}` : ""}</div>
       </div>
       <div class="result-actions">
-        <button class="secondary-btn action-btn note-mini-btn" title="📝 Ajouter une note" aria-label="Ajouter une note">
-          <span class="action-icon">📝</span><span class="action-label">Ajouter une note</span>
+        <button class="secondary-btn action-btn note-mini-btn" title="Ajouter une note" aria-label="Ajouter une note">
+          <span class="action-icon">📝</span>
         </button>
         <button class="action-btn ${isRead ? "remove" : ""}" title="${isRead ? "↩️ Retirer lu" : "✅ Marquer comme lu"}" aria-label="${isRead ? "Retirer lu" : "Marquer comme lu"}">
           <span class="action-icon">${isRead ? "↩️" : "✅"}</span><span class="action-label">${isRead ? "Retirer" : "Marquer lu"}</span>
@@ -107,7 +105,7 @@ export function renderDailyReading(data, actions) {
           <strong>${s.numero}. ${s.nomFr}</strong><br><span class="muted">${s.categorie} ${noteCount ? `• 📝 ${noteCount}` : ""}</span>
         </div>
         <button class="secondary-btn action-btn note-mini-btn" title="📝 Ajouter une note" aria-label="Ajouter une note">
-          <span class="action-icon">📝</span><span class="action-label">Ajouter une note</span>
+          <span class="action-icon">📝</span>
         </button>
       </div>
     `;

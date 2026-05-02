@@ -68,3 +68,19 @@ self.addEventListener("notificationclick", (event) => {
     })
   );
 });
+
+let scheduledTimer = null;
+self.addEventListener("message", (event) => {
+  const payload = event.data || {};
+  if (payload.type !== "SCHEDULE_NOTIFICATION") return;
+  if (scheduledTimer) clearTimeout(scheduledTimer);
+  const delay = Math.max(0, Number(payload.when || Date.now()) - Date.now());
+  scheduledTimer = setTimeout(() => {
+    self.registration.showNotification(payload.title || "Quran Tracker", {
+      body: payload.body || "Il est temps de lire aujourd'hui 📖🔥",
+      icon: payload.icon || "icon-192.png",
+      badge: payload.icon || "icon-192.png",
+      tag: "quran-tracker-reminder"
+    });
+  }, delay);
+});

@@ -331,8 +331,8 @@ button {
 }
 
 .action-btn {
-  min-height: 44px;
-  min-width: 44px;
+  min-height: 36px;
+  min-width: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -552,32 +552,29 @@ button {
 
 .achievement-stack {
   position: fixed;
-  top: calc(10px + env(safe-area-inset-top));
-  left: 0;
-  right: 0;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
   display: grid;
   gap: 8px;
   justify-items: center;
-  z-index: 80;
+  z-index: 9999;
   pointer-events: none;
 }
 
 .achievement-banner {
-  width: min(90%, 560px);
-  border-radius: 14px;
-  background: linear-gradient(120deg, rgba(24, 160, 106, 0.95), rgba(216, 185, 113, 0.9));
-  color: #08150f;
-  padding: 10px 12px;
-  box-shadow: var(--shadow);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  pointer-events: auto;
-  animation: slide-down 240ms ease-out;
-}
-
-.achievement-close {
-  background: rgba(0, 0, 0, 0.15);
+  width: min(92vw, 560px);
+  border-radius: 12px;
+  background: #1a3a2a;
+  color: #d4af37;
+  border: 1px solid #d4af37;
+  padding: 12px 24px;
+  font-size: 15px;
+  font-weight: 500;
+  opacity: 1;
+  box-shadow: none;
+  pointer-events: none;
+  animation: slideDown 0.3s ease, fadeOut 0.5s ease 3.5s forwards;
 }
 
 .save-indicator {
@@ -640,9 +637,13 @@ button {
   100% { transform: translateY(110vh) rotate(560deg); opacity: 0; }
 }
 
-@keyframes slide-down {
+@keyframes slideDown {
   from { transform: translateY(-20px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fadeOut {
+  to { opacity: 0; pointer-events: none; }
 }
 
 @keyframes pulse-save {
@@ -669,8 +670,8 @@ button {
   }
 
   .action-btn {
-    width: 44px;
-    height: 44px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     padding: 0;
   }

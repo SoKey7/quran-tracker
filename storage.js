@@ -2,6 +2,7 @@ const STORAGE_KEY = "quranTrackerData";
 const STORAGE_TEMP_KEY = "quranTrackerData_tmp";
 const LEGACY_ROOT_KEY = "quranTrackerStore";
 const LEGACY_KEYS = ["profile", "progress", "readSurahs", "history", "prestige", "streak", "settings"];
+const APP_KEYS = [STORAGE_KEY, STORAGE_TEMP_KEY, LEGACY_ROOT_KEY, ...LEGACY_KEYS];
 const DATA_VERSION = 2;
 const TOTAL_SURAHS = 114;
 
@@ -129,9 +130,9 @@ function loadLegacySeed() {
 }
 
 export function loadAppData() {
-  const current = safeParse(localStorage.getItem(STORAGE_KEY), null);
+  const current = loadData(STORAGE_KEY, null);
   if (current) return validateData(current);
-  const tmp = safeParse(localStorage.getItem(STORAGE_TEMP_KEY), null);
+  const tmp = loadData(STORAGE_TEMP_KEY, null);
   if (tmp) return validateData(tmp);
   const legacy = loadLegacySeed();
   return validateData(legacy);
@@ -140,10 +141,26 @@ export function loadAppData() {
 export function saveAppData(data) {
   const safe = validateData(data);
   const payload = JSON.stringify(safe);
-  localStorage.setItem(STORAGE_TEMP_KEY, payload);
+  saveData(STORAGE_TEMP_KEY, safe);
   localStorage.setItem(STORAGE_KEY, payload);
   localStorage.removeItem(STORAGE_TEMP_KEY);
   return safe;
+}
+
+export function saveData(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+export function loadData(key, defaultValue = null) {
+  return safeParse(localStorage.getItem(key), defaultValue);
+}
+
+export function clearAll() {
+  APP_KEYS.forEach((k) => localStorage.removeItem(k));
+}
+
+export function migrate() {
+  return loadAppData();
 }
 
 export { DATA_VERSION, TOTAL_SURAHS };

@@ -69,7 +69,7 @@
 68,Al-Qalam,La Plume,Courte,Non,
 69,Al-Haqqah,L'Inévitable,Courte,Non,
 70,Al-Ma'arij,Les Voies d'Ascension,Courte,Non,
-71,Nuh,Noé,Courte,Oui,2026-05-01
+71,Nuh,Noé,Courte,Non,
 72,Al-Jinn,Les Djinns,Courte,Non,
 73,Al-Muzzammil,L'Enveloppé,Courte,Non,
 74,Al-Muddathir,Le Revêtu d'un Manteau,Courte,Non,
@@ -78,14 +78,14 @@
 77,Al-Mursalat,Les Envoyés,Courte,Non,
 78,An-Naba,La Nouvelle,Courte,Non,
 79,An-Nazi'at,Les Anges Qui Arrachent,Courte,Non,
-80,Abasa,Il S'est Renfrogné,Courte,Oui,2026-05-01
+80,Abasa,Il S'est Renfrogné,Courte,Non,
 81,At-Takwir,L'Obscurcissement,Courte,Non,
 82,Al-Infitar,La Rupture,Courte,Non,
 83,Al-Mutaffifin,Les Fraudeurs,Courte,Non,
-84,Al-Inshiqaq,La Déchirure,Courte,Oui,2026-05-01
+84,Al-Inshiqaq,La Déchirure,Courte,Non,
 85,Al-Buruj,Les Constellations,Courte,Non,
 86,At-Tariq,L'Astre Nocturne,Courte,Non,
-87,Al-A'la,Le Très-Haut,Courte,Oui,2026-05-01
+87,Al-A'la,Le Très-Haut,Courte,Non,
 88,Al-Ghashiya,L'Enveloppante,Courte,Non,
 89,Al-Fajr,L'Aube,Courte,Non,
 90,Al-Balad,La Cité,Courte,Non,
@@ -103,7 +103,7 @@
 102,At-Takathur,La Course aux Richesses,Courte,Non,
 103,Al-Asr,Le Temps,TresCourte,Non,
 104,Al-Humaza,Les Calomniateurs,TresCourte,Non,
-105,Al-Fil,L'Éléphant,TresCourte,Oui,2026-05-01
+105,Al-Fil,L'Éléphant,TresCourte,Non,
 106,Quraysh,Quraysh,TresCourte,Non,
 107,Al-Ma'un,L'Ustensile,TresCourte,Non,
 108,Al-Kawthar,L'Abondance,TresCourte,Non,
@@ -112,4 +112,4 @@
 111,Al-Masad,Les Fibres,TresCourte,Non,
 112,Al-Ikhlas,Le Monothéisme Pur,TresCourte,Non,
 113,Al-Falaq,L'Aube Naissante,TresCourte,Non,
-114,An-Nas,Les Hommes,TresCourte,Oui,2026-05-01
+114,An-Nas,Les Hommes,TresCourte,Non,
