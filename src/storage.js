@@ -2,11 +2,13 @@ const STORAGE_KEY = "quranTrackerData";
 const STORAGE_TEMP_KEY = "quranTrackerData_tmp";
 const LEGACY_ROOT_KEY = "quranTrackerStore";
 const LEGACY_KEYS = ["profile", "progress", "readSurahs", "history", "prestige", "streak", "settings"];
-const APP_KEYS = [STORAGE_KEY, STORAGE_TEMP_KEY, LEGACY_ROOT_KEY, ...LEGACY_KEYS];
+const LEGACY_EXTRA_KEYS = ["quranSourates"];
+const LEGACY_PURGE_KEYS = [LEGACY_ROOT_KEY, ...LEGACY_KEYS, ...LEGACY_EXTRA_KEYS];
+const APP_KEYS = [STORAGE_KEY, STORAGE_TEMP_KEY, ...LEGACY_PURGE_KEYS];
 const DATA_VERSION = 3;
 const TOTAL_SURAHS = 114;
 
-function safeParse(raw, fallback = null) {
+export function safeParse(raw, fallback = null) {
   try {
     return raw ? JSON.parse(raw) : fallback;
   } catch {
@@ -26,7 +28,8 @@ function createDefaultData() {
     progress: { total: TOTAL_SURAHS, readSurahs: [], readCount: 0, cyclesCompleted: 0, surahMeta: {} },
     history: [],
     notes: {},
-    badges: { unlocked: [], favorites: [] },
+    badges: { unlocked: [], favorites: [], firstLongCompleted: false },
+    badgesEarned: [],
     settings: {
       theme: "dark",
       vibration: true,
@@ -92,7 +95,8 @@ export function migrateData(input) {
       ...(data.settings || {}),
       notifications: { ...defaults.settings.notifications, ...(data.settings?.notifications || {}) }
     },
-    streak: { ...defaults.streak, ...(data.streak || {}) }
+    streak: { ...defaults.streak, ...(data.streak || {}) },
+    badgesEarned: Array.isArray(data.badgesEarned) ? data.badgesEarned : defaults.badgesEarned
   };
 
   merged.version = DATA_VERSION;
@@ -105,13 +109,15 @@ export function migrateData(input) {
   merged.badges.favorites = Array.isArray(merged.badges.favorites) ? merged.badges.favorites : [];
   merged.notes = merged.notes && typeof merged.notes === "object" ? merged.notes : {};
   merged.friends = merged.friends && typeof merged.friends === "object" ? merged.friends : defaults.friends;
-  merged.friends.profileCode = typeof merged.friends.profileCode === "string" && merged.friends.profileCode
-    ? merged.friends.profileCode
-    : defaults.friends.profileCode;
+  merged.friends.profileCode =
+    typeof merged.friends.profileCode === "string" && merged.friends.profileCode
+      ? merged.friends.profileCode
+      : defaults.friends.profileCode;
   merged.friends.list = Array.isArray(merged.friends.list) ? merged.friends.list : [];
-  merged.friends.encouragements = merged.friends.encouragements && typeof merged.friends.encouragements === "object"
-    ? merged.friends.encouragements
-    : {};
+  merged.friends.encouragements =
+    merged.friends.encouragements && typeof merged.friends.encouragements === "object"
+      ? merged.friends.encouragements
+      : {};
   Object.keys(merged.notes).forEach((k) => {
     const arr = Array.isArray(merged.notes[k]) ? merged.notes[k] : [];
     merged.notes[k] = arr
@@ -143,26 +149,64 @@ function loadLegacySeed() {
   return hasAny ? raw : null;
 }
 
+/** Fusionne `quranSourates` dans l’objet brut avant validation (une seule source de vérité après sauvegarde). */
+function attachAltSouratesIfNeeded(raw) {
+  const base = raw && typeof raw === "object" ? raw : {};
+  const hasCatalog = Array.isArray(base.sourates) && base.sourates.length >= 50;
+  if (hasCatalog) return base;
+  const alt = safeParse(localStorage.getItem("quranSourates"), null);
+  if (Array.isArray(alt) && alt.length >= 50) {
+    return { ...base, sourates: alt };
+  }
+  return base;
+}
+
+function purgeLegacyStorageKeys() {
+  try {
+    LEGACY_PURGE_KEYS.forEach((k) => localStorage.removeItem(k));
+  } catch {
+    /* ignore */
+  }
+}
+
 export function loadAppData() {
-  const current = loadData(STORAGE_KEY, null);
-  if (current) return validateData(current);
-  const tmp = loadData(STORAGE_TEMP_KEY, null);
-  if (tmp) return validateData(tmp);
-  const legacy = loadLegacySeed();
-  return validateData(legacy);
+  let current = loadData(STORAGE_KEY, null);
+  if (!current) current = loadData(STORAGE_TEMP_KEY, null);
+  if (!current) current = loadLegacySeed();
+  if (!current || typeof current !== "object") current = {};
+  return validateData(attachAltSouratesIfNeeded(current));
 }
 
 export function saveAppData(data) {
   const safe = validateData(data);
   const payload = JSON.stringify(safe);
-  saveData(STORAGE_TEMP_KEY, safe);
-  localStorage.setItem(STORAGE_KEY, payload);
-  localStorage.removeItem(STORAGE_TEMP_KEY);
+  try {
+    keyedWrite(STORAGE_TEMP_KEY, safe);
+    localStorage.setItem(STORAGE_KEY, payload);
+    localStorage.removeItem(STORAGE_TEMP_KEY);
+    purgeLegacyStorageKeys();
+  } catch {
+    try {
+      keyedWrite(STORAGE_TEMP_KEY, safe);
+    } catch {
+      /* quota / mode privé */
+    }
+    return safe;
+  }
   return safe;
 }
 
-export function saveData(key, value) {
+function keyedWrite(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
+}
+
+/** Écrit une clé arbitraire (tests / migration interne) */
+export function saveData(key, value) {
+  try {
+    keyedWrite(key, value);
+  } catch {
+    /* ignore */
+  }
 }
 
 export function loadData(key, defaultValue = null) {
@@ -170,7 +214,13 @@ export function loadData(key, defaultValue = null) {
 }
 
 export function clearAll() {
-  APP_KEYS.forEach((k) => localStorage.removeItem(k));
+  APP_KEYS.forEach((k) => {
+    try {
+      localStorage.removeItem(k);
+    } catch {
+      /* ignore */
+    }
+  });
 }
 
 export function migrate() {

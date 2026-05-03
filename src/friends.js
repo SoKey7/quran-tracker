@@ -16,7 +16,7 @@ function todayKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function createFriendsService(data, persist, showToast) {
+export function createFriendsService(data, persist, toastFn) {
   return {
     addFriend(input) {
       const friend = createFriend(input);
@@ -39,7 +39,7 @@ export function createFriendsService(data, persist, showToast) {
       };
       persist();
       const friend = data.friends.list.find((f) => f.id === friendId);
-      showToast(`📖 Ton ami ${friend?.pseudo || "t"} t'encourage a lire aujourd'hui !`);
+      toastFn(`📖 Ton ami ${friend?.pseudo || "t"} t'encourage a lire aujourd'hui !`);
       return true;
     }
   };

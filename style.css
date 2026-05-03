@@ -6,8 +6,12 @@
   --muted: #b7c2ba;
   --emerald: #18a06a;
   --gold: #d8b971;
+  --primary: var(--emerald);
+  --accent: var(--gold);
   --danger: #d06262;
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  --radius: 12px;
+  --gap: 12px;
 }
 
 body.light {
@@ -18,6 +22,8 @@ body.light {
   --muted: #536257;
   --emerald: #14875a;
   --gold: #a8863f;
+  --primary: var(--emerald);
+  --accent: var(--gold);
   --shadow: 0 8px 24px rgba(13, 22, 18, 0.15);
 }
 
@@ -141,7 +147,19 @@ body.light {
 
 main {
   display: grid;
-  gap: 12px;
+  gap: var(--gap);
+}
+
+button:focus-visible,
+.time-btn:focus-visible,
+.primary-btn:focus-visible,
+.secondary-btn:focus-visible,
+.success-btn:focus-visible,
+.icon-btn:focus-visible,
+.nav-btn:focus-visible,
+.avatar-btn:focus-visible {
+  outline: 2px solid var(--accent, var(--gold));
+  outline-offset: 2px;
 }
 
 .view {
@@ -186,10 +204,11 @@ button {
 .danger-btn,
 .icon-btn {
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--radius);
   padding: 12px;
   cursor: pointer;
   color: var(--text);
+  min-height: 44px;
 }
 
 .time-btn {
@@ -772,10 +791,10 @@ button {
   border-color: #d4af37;
 }
 
-.date-btn.active {
-  background: rgba(212, 175, 55, 0.2) !important;
-  border-color: #d4af37 !important;
-  color: #d4af37 !important;
+.quick-date-row .secondary-btn.date-btn.active {
+  background: rgba(212, 175, 55, 0.2);
+  border-color: #d4af37;
+  color: #d4af37;
 }
 
 .profile-widgets-grid {

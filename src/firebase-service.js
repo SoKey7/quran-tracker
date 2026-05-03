@@ -16,16 +16,19 @@ export async function signUp(pseudo, email, password) {
   const ctx = getCtx();
   if (!ctx) throw new Error("Firebase non configuré");
   const cred = await ctx.auth.createUserWithEmailAndPassword(email, password);
-  await ctx.db.collection("users").doc(cred.user.uid).set({
-    uid: cred.user.uid,
-    pseudo,
-    email,
-    streak: 0,
-    progress: 0,
-    prestige: 0,
-    joinedAt: ctx.firebase.firestore.FieldValue.serverTimestamp(),
-    friends: []
-  }, { merge: true });
+  await ctx.db.collection("users").doc(cred.user.uid).set(
+    {
+      uid: cred.user.uid,
+      pseudo,
+      email,
+      streak: 0,
+      progress: 0,
+      prestige: 0,
+      joinedAt: ctx.firebase.firestore.FieldValue.serverTimestamp(),
+      friends: []
+    },
+    { merge: true }
+  );
   return cred.user;
 }
 
@@ -98,5 +101,8 @@ export async function getFriends(uid) {
   if (!me.exists()) return [];
   const ids = Array.isArray(me.data().friends) ? me.data().friends : [];
   const docs = await Promise.all(ids.map((id) => ctx.db.collection("users").doc(id).get()));
-  return docs.filter((d) => d.exists()).map((d) => d.data()).sort((a, b) => (b.streak || 0) - (a.streak || 0));
+  return docs
+    .filter((d) => d.exists())
+    .map((d) => d.data())
+    .sort((a, b) => (b.streak || 0) - (a.streak || 0));
 }

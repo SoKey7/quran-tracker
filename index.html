@@ -18,7 +18,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-  <script type="module" src="./firebase-config.js"></script>
+  <script type="module" src="./src/firebase-config.js"></script>
 </head>
 <body>
   <div id="app">
@@ -52,7 +52,7 @@
             <button class="time-btn" data-minutes="20">20 min</button>
             <button class="time-btn" data-minutes="30">30 min</button>
           </div>
-          <button class="primary-btn" id="generateBtn">Générer ma lecture</button>
+          <button class="primary-btn" id="generateBtn" type="button" aria-label="Générer ma lecture du jour">Générer ma lecture</button>
         </article>
 
         <article class="card glass" id="dailyReadingCard">
@@ -63,7 +63,7 @@
           <ul class="reading-list" id="dailyReadingList">
             <li class="muted">Aucune lecture générée.</li>
           </ul>
-          <button class="success-btn" id="completeBtn" disabled>J'ai terminé</button>
+          <button class="success-btn" id="completeBtn" type="button" disabled aria-label="Valider la lecture du jour">J'ai terminé</button>
         </article>
 
         <article class="card quote-card glass">
@@ -211,7 +211,7 @@
     <div class="modal glass">
       <div class="modal-header">
         <h3>Quand as-tu lu cette sourate ?</h3>
-        <button id="closeMarkDateBtn" class="icon-btn">✖</button>
+        <button id="closeMarkDateBtn" class="icon-btn" type="button" aria-label="Fermer">✖</button>
       </div>
       <p id="markDateModalSurah" class="muted"></p>
       <div class="settings-list">
@@ -235,7 +235,7 @@
     <div class="modal glass">
       <div class="modal-header">
         <h3>Ajouter un ami</h3>
-        <button id="closeFriendsModalBtn" class="icon-btn">✖</button>
+        <button id="closeFriendsModalBtn" class="icon-btn" type="button" aria-label="Fermer">✖</button>
       </div>
       <div class="settings-list">
         <input id="friendSearchInput" type="text" placeholder="Pseudo ou email..." class="note-input">
@@ -296,6 +296,6 @@
     </div>
   </div>
 
-  <script type="module" src="main.js"></script>
+  <script type="module" src="./src/main.js"></script>
 </body>
 </html>

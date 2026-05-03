@@ -12,9 +12,9 @@ export const firebaseConfig = {
 function hasValidConfig() {
   return Boolean(
     firebaseConfig.apiKey !== "REMPLACER" &&
-    firebaseConfig.authDomain !== "REMPLACER" &&
-    firebaseConfig.projectId !== "REMPLACER" &&
-    firebaseConfig.appId !== "REMPLACER"
+      firebaseConfig.authDomain !== "REMPLACER" &&
+      firebaseConfig.projectId !== "REMPLACER" &&
+      firebaseConfig.appId !== "REMPLACER"
   );
 }
 

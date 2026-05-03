@@ -1,20 +1,29 @@
-const CACHE_NAME = "quran-tracker-v3";
+const CACHE_NAME = "quran-tracker-v4-src";
 const ASSETS = [
   "./",
   "./index.html",
   "./style.css",
-  "./main.js",
-  "./storage.js",
-  "./ui.js",
-  "./badges.js",
-  "./history.js",
-  "./notes.js",
   "./manifest.json",
   "./logo.png",
   "./icon-192.png",
   "./icon-512.png",
   "./apple-touch-icon.png",
-  "./favicon.ico"
+  "./favicon.ico",
+  "./src/main.js",
+  "./src/storage.js",
+  "./src/utils.js",
+  "./src/ui.js",
+  "./src/surahs.js",
+  "./src/reading.js",
+  "./src/reading-catalog-default.js",
+  "./src/profile.js",
+  "./src/widgets.js",
+  "./src/friends.js",
+  "./src/badges.js",
+  "./src/history.js",
+  "./src/notes.js",
+  "./src/firebase-config.js",
+  "./src/firebase-service.js"
 ];
 
 self.addEventListener("install", (event) => {
@@ -38,9 +47,7 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   if (event.request.mode === "navigate") {
-    event.respondWith(
-      fetch(event.request).catch(() => caches.match("./index.html"))
-    );
+    event.respondWith(fetch(event.request).catch(() => caches.match("./index.html")));
     return;
   }
 

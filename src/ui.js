@@ -1,18 +1,14 @@
 import { getAllNotes, getSurahNotes } from "./notes.js";
 import { getValidHistory } from "./history.js";
 import { getBadgeCards } from "./badges.js";
+import { safeParse } from "./storage.js";
+import { formatDate, formatDateTime, showToast } from "./utils.js";
+
+export { showToast };
 
 let bannerTimer = null;
 const bannerQueue = [];
 let heatmapTooltipTimer = null;
-
-export function showToast(msg) {
-  const toast = document.getElementById("toast");
-  toast.textContent = msg;
-  toast.classList.remove("hidden");
-  toast.classList.add("toast-in");
-  setTimeout(() => toast.classList.add("hidden"), 1800);
-}
 
 export function showHeatmapTooltip(text) {
   const el = document.getElementById("heatmapTooltip");
@@ -26,7 +22,7 @@ export function showHeatmapTooltip(text) {
   };
   document.removeEventListener("pointerdown", hide);
   document.addEventListener("pointerdown", hide, { once: true });
-  heatmapTooltipTimer = setTimeout(() => {
+  heatmapTooltipTimer = window.setTimeout(() => {
     el.classList.add("hidden");
   }, 2500);
 }
@@ -35,7 +31,7 @@ export function showSaveSuccess() {
   const el = document.getElementById("saveIndicator");
   el.classList.remove("hidden");
   el.classList.add("pulse-save");
-  setTimeout(() => {
+  window.setTimeout(() => {
     el.classList.remove("pulse-save");
     el.classList.add("hidden");
   }, 900);
@@ -61,7 +57,7 @@ function flushBannerQueue() {
     top: calc(env(safe-area-inset-top, 44px) + 60px);
     left: 50%;
     transform: translateX(-50%);
-    z-index: 99999;
+    z-index: 140;
     background: #1a3a2a;
     color: #d4af37;
     border: 1px solid #d4af37;
@@ -81,9 +77,9 @@ function flushBannerQueue() {
       card.style.transition = "opacity 0.3s ease";
     });
   });
-  bannerTimer = setTimeout(() => {
+  bannerTimer = window.setTimeout(() => {
     card.style.opacity = "0";
-    setTimeout(() => {
+    window.setTimeout(() => {
       card.remove();
       bannerTimer = null;
       flushBannerQueue();
@@ -99,12 +95,14 @@ export function renderTop(data, totalSurahs, weightedProgress) {
   document.getElementById("prestigeBadge").textContent = `⭐ Prestige ${data.prestige}`;
 }
 
-export function renderSearchResults(data, surahs, query, actions) {
+export function renderSearchResults(data, surahsList, query, actions) {
   const q = query.trim().toLowerCase();
-  const list = q ? surahs.filter((s) => `${s.numero}`.includes(q) || s.nomFr.toLowerCase().includes(q)) : surahs;
+  const listFiltered = q
+    ? surahsList.filter((s) => `${s.numero}`.includes(q) || s.nomFr.toLowerCase().includes(q))
+    : surahsList;
   const root = document.getElementById("searchResults");
   root.innerHTML = "";
-  list.forEach((s) => {
+  listFiltered.forEach((s) => {
     const isRead = data.progress.readSurahs.includes(s.numero);
     const noteCount = (data.notes[String(s.numero)] || []).length;
     const row = document.createElement("div");
@@ -115,10 +113,10 @@ export function renderSearchResults(data, surahs, query, actions) {
         <div class="muted">${s.categorie} ${noteCount ? `• 📝 ${noteCount}` : ""}</div>
       </div>
       <div class="result-actions">
-        <button class="secondary-btn action-btn note-mini-btn" title="Ajouter une note" aria-label="Ajouter une note">
+        <button class="secondary-btn action-btn note-mini-btn" type="button" title="Ajouter une note" aria-label="Ajouter une note">
           <span class="action-icon">📝</span>
         </button>
-        <button class="action-btn ${isRead ? "remove" : ""}" title="${isRead ? "↩️ Retirer lu" : "✅ Marquer comme lu"}" aria-label="${isRead ? "Retirer lu" : "Marquer comme lu"}">
+        <button type="button" class="action-btn ${isRead ? "remove" : ""}" title="${isRead ? "↩️ Retirer lu" : "✅ Marquer comme lu"}" aria-label="${isRead ? "Retirer lu" : "Marquer comme lu"}">
           <span class="action-icon">${isRead ? "↩️" : "✅"}</span><span class="action-label">${isRead ? "Retirer" : "Marquer lu"}</span>
         </button>
       </div>
@@ -147,7 +145,7 @@ export function renderDailyReading(data, actions) {
         <div>
           <strong>${s.numero}. ${s.nomFr}</strong><br><span class="muted">${s.categorie} ${noteCount ? `• 📝 ${noteCount}` : ""}</span>
         </div>
-        <button class="secondary-btn action-btn note-mini-btn" title="📝 Ajouter une note" aria-label="Ajouter une note">
+        <button type="button" class="secondary-btn action-btn note-mini-btn" title="Ajouter une note" aria-label="Ajouter une note">
           <span class="action-icon">📝</span>
         </button>
       </div>
@@ -169,7 +167,7 @@ export function renderHistory(data, surahsById) {
   valid.forEach((entry) => {
     const div = document.createElement("div");
     div.className = "timeline-item";
-    const date = new Date(entry.date).toLocaleDateString("fr-FR");
+    const date = formatDate(entry.date);
     const surahName = surahsById.get(entry.surahId)?.nomFr || entry.surahName;
     const actionLabel = entry.action === "read" ? "✅ Lu" : "↩️ Retire";
     div.innerHTML = `<div class="muted">${date}</div><strong>${actionLabel} • ${entry.surahId}. ${surahName}</strong>`;
@@ -190,7 +188,7 @@ export function renderProfile(data, totalSurahs, weightedProgress, weightedLabel
     .sort((a, b) => new Date(b) - new Date(a));
   const derniereDate = dates[0] || null;
   document.getElementById("statLastRead").textContent = derniereDate
-    ? new Date(derniereDate).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })
+    ? formatDate(derniereDate, { day: "numeric", month: "long", year: "numeric" })
     : "Aucune";
   document.getElementById("statPrestige").textContent = `Prestige ${data.prestige}`;
   document.getElementById("statCycles").textContent = `${data.progress.cyclesCompleted}`;
@@ -200,12 +198,8 @@ export function renderProfileWidgets(data, weightedProgress, actions = {}) {
   const root = document.getElementById("profileWidgetsRoot");
   if (!root) return;
   let source = data;
-  try {
-    const raw = localStorage.getItem("quranTrackerData");
-    if (raw) source = JSON.parse(raw);
-  } catch {
-    source = data;
-  }
+  const parsedSource = safeParse(localStorage.getItem("quranTrackerData"), null);
+  if (parsedSource && typeof parsedSource === "object") source = parsedSource;
   const streakValue = Number(source?.streak?.current ?? source?.streak ?? data.streak.current ?? 0);
   const readFromSourates = Array.isArray(source?.sourates)
     ? source.sourates.filter((s) => s.lu === true || s.lu === "Oui").length
@@ -214,7 +208,9 @@ export function renderProfileWidgets(data, weightedProgress, actions = {}) {
   const total = 114;
   const percent = Math.round((readCount / total) * 100);
   const today = new Date().toISOString().slice(0, 10);
-  const readToday = Array.isArray(source?.history) && source.history.some((h) => String(h.date || "").slice(0, 10) === today && h.valid !== false && h.action !== "unread");
+  const readToday =
+    Array.isArray(source?.history) &&
+    source.history.some((h) => String(h.date || "").slice(0, 10) === today && h.valid !== false && h.action !== "unread");
   root.innerHTML = "";
 
   const streakCard = document.createElement("div");
@@ -237,6 +233,7 @@ export function renderProfileWidgets(data, weightedProgress, actions = {}) {
   const ctaCard = document.createElement("button");
   ctaCard.type = "button";
   ctaCard.className = "profile-widget-card";
+  ctaCard.setAttribute("aria-label", "Commencer une lecture depuis le Profil");
   ctaCard.style.border = "none";
   ctaCard.style.textAlign = "left";
   ctaCard.innerHTML = `
@@ -261,8 +258,10 @@ export function renderWidgets(widgetSpecs, actions = {}) {
     card.innerHTML = `<h4>${w.title}</h4><div class="widget-value">${w.value}</div>`;
     if (w.actionLabel) {
       const button = document.createElement("button");
+      button.type = "button";
       button.className = "widget-action";
       button.textContent = w.actionLabel;
+      button.setAttribute("aria-label", `${w.actionLabel}: ${w.title}`);
       button.addEventListener("click", () => actions.onAction?.(w.id));
       card.appendChild(button);
     }
@@ -286,11 +285,13 @@ export function renderFriends(friends, actions = {}) {
       <div class="muted">🔥 ${friend.streak} jours</div>
       <div class="muted">${friend.progressPercent}%</div>
       <div class="muted">Prestige ${friend.prestige}</div>
-      <div class="muted">Activite: ${new Date(friend.lastActivityAt).toLocaleDateString("fr-FR")}</div>
+      <div class="muted">Activite: ${formatDate(new Date(friend.lastActivityAt))}</div>
     `;
     const encourageBtn = document.createElement("button");
+    encourageBtn.type = "button";
     encourageBtn.className = "secondary-btn";
     encourageBtn.textContent = "Encourager";
+    encourageBtn.setAttribute("aria-label", `Encourager ${friend.pseudo}`);
     encourageBtn.disabled = !actions.canEncourage?.(friend.id);
     encourageBtn.addEventListener("click", () => actions.onEncourage?.(friend.id));
     card.appendChild(encourageBtn);
@@ -310,10 +311,12 @@ export function renderFriendRequests(requests, actions = {}) {
     const actionsWrap = document.createElement("div");
     actionsWrap.className = "result-actions";
     const accept = document.createElement("button");
+    accept.type = "button";
     accept.className = "secondary-btn";
     accept.textContent = "Accepter";
     accept.addEventListener("click", () => actions.onAccept?.(req));
     const reject = document.createElement("button");
+    reject.type = "button";
     reject.className = "secondary-btn";
     reject.textContent = "Refuser";
     reject.addEventListener("click", () => actions.onReject?.(req));
@@ -347,7 +350,7 @@ export function renderAllNotes(data, surahsById, sort) {
     const div = document.createElement("div");
     div.className = "note-item";
     const name = surahsById.get(note.surahId)?.nomFr || `Sourate ${note.surahId}`;
-    div.innerHTML = `<strong>${note.surahId}. ${name}</strong><div>${note.text}</div><div class="muted">${new Date(note.createdAt).toLocaleString("fr-FR")} ${note.favorite ? "• ⭐ Favori" : ""}</div>`;
+    div.innerHTML = `<strong>${note.surahId}. ${name}</strong><div>${note.text}</div><div class="muted">${formatDateTime(note.createdAt)} ${note.favorite ? "• ⭐ Favori" : ""}</div>`;
     root.appendChild(div);
   });
 }
@@ -377,10 +380,10 @@ export function renderSurahNotesList(data, surahId, handlers) {
     row.className = "note-item";
     row.innerHTML = `
       <div>${note.text}</div>
-      <div class="muted">${new Date(note.createdAt).toLocaleString("fr-FR")} ${note.favorite ? "• ⭐ Favori" : ""}</div>
+      <div class="muted">${formatDateTime(note.createdAt)} ${note.favorite ? "• ⭐ Favori" : ""}</div>
       <div class="result-actions">
-        <button class="secondary-btn action-btn" title="Modifier la note" aria-label="Modifier la note"><span class="action-icon">✏️</span><span class="action-label">Modifier</span></button>
-        <button class="danger-btn action-btn" title="🗑️ Supprimer la note" aria-label="Supprimer la note"><span class="action-icon">🗑️</span><span class="action-label">Supprimer</span></button>
+        <button type="button" class="secondary-btn action-btn" title="Modifier la note" aria-label="Modifier la note"><span class="action-icon">✏️</span><span class="action-label">Modifier</span></button>
+        <button type="button" class="danger-btn action-btn" title="Supprimer la note" aria-label="Supprimer la note"><span class="action-icon">🗑️</span><span class="action-label">Supprimer</span></button>
       </div>
     `;
     const [editBtn, delBtn] = row.querySelectorAll("button");
@@ -402,7 +405,7 @@ export function renderMonthlyHeatmap(data, rootId, onCellClick) {
   });
   const now = new Date();
   const days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  for (let d = 1; d <= days; d++) {
+  for (let d = 1; d <= days; d += 1) {
     const date = new Date(now.getFullYear(), now.getMonth(), d);
     const key = date.toISOString().slice(0, 10);
     const count = map.get(key) || 0;
@@ -411,7 +414,9 @@ export function renderMonthlyHeatmap(data, rootId, onCellClick) {
     cell.type = "button";
     cell.className = "heatmap-cell";
     cell.dataset.level = String(level);
-    cell.title = `${date.toLocaleDateString("fr-FR")} • ${count} lecture(s)`;
+    const label = `${date.toLocaleDateString("fr-FR")} • ${count} lecture(s)`;
+    cell.title = label;
+    cell.setAttribute("aria-label", label);
     cell.addEventListener("click", () => onCellClick(`${date.toLocaleDateString("fr-FR")}\n${count} lecture${count > 1 ? "s" : ""}`));
     root.appendChild(cell);
   }
