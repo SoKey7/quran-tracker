@@ -55,14 +55,39 @@ function flushBannerQueue() {
   const stack = document.getElementById("achievementStack");
   const card = document.createElement("div");
   card.className = "achievement-banner";
-  card.innerHTML = `
-    <div><strong>${item.icon} ${item.title}</strong><div>${item.subtitle}</div></div>
+  card.innerHTML = `<div><strong>${item.icon} ${item.title}</strong><div>${item.subtitle}</div></div>`;
+  card.style.cssText = `
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 44px) + 60px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 99999;
+    background: #1a3a2a;
+    color: #d4af37;
+    border: 1px solid #d4af37;
+    border-radius: 12px;
+    padding: 12px 24px;
+    font-size: 14px;
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+    white-space: nowrap;
+    -webkit-appearance: none;
   `;
   stack.prepend(card);
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      card.style.opacity = "1";
+      card.style.transition = "opacity 0.3s ease";
+    });
+  });
   bannerTimer = setTimeout(() => {
-    card.remove();
-    bannerTimer = null;
-    flushBannerQueue();
+    card.style.opacity = "0";
+    setTimeout(() => {
+      card.remove();
+      bannerTimer = null;
+      flushBannerQueue();
+    }, 500);
   }, 4000);
 }
 
@@ -159,7 +184,14 @@ export function renderProfile(data, totalSurahs, weightedProgress, weightedLabel
   document.getElementById("statSessions").textContent = `${data.profile.stats.totalSessions}`;
   document.getElementById("statAvgDay").textContent = `${Math.round((data.profile.stats.totalMinutes || 0) / Math.max(data.streak.current, 1))} min`;
   document.getElementById("statStreak").textContent = `${data.streak.current}`;
-  document.getElementById("statLastRead").textContent = data.history[0] ? new Date(data.history[0].date).toLocaleDateString("fr-FR") : "Aucune";
+  const dates = (Array.isArray(data.history) ? data.history : [])
+    .filter((h) => h.valid !== false && h.date)
+    .map((h) => h.date)
+    .sort((a, b) => new Date(b) - new Date(a));
+  const derniereDate = dates[0] || null;
+  document.getElementById("statLastRead").textContent = derniereDate
+    ? new Date(derniereDate).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })
+    : "Aucune";
   document.getElementById("statPrestige").textContent = `Prestige ${data.prestige}`;
   document.getElementById("statCycles").textContent = `${data.progress.cyclesCompleted}`;
 }
@@ -175,9 +207,12 @@ export function renderProfileWidgets(data, weightedProgress, actions = {}) {
     source = data;
   }
   const streakValue = Number(source?.streak?.current ?? source?.streak ?? data.streak.current ?? 0);
-  const readCount = Number(source?.progress?.readCount ?? data.progress.readCount ?? 0);
-  const total = Number(source?.progress?.total ?? 114);
-  const percent = Math.round((readCount / Math.max(total, 1)) * 100);
+  const readFromSourates = Array.isArray(source?.sourates)
+    ? source.sourates.filter((s) => s.lu === true || s.lu === "Oui").length
+    : null;
+  const readCount = Number(readFromSourates ?? source?.progress?.readCount ?? data.progress.readCount ?? 0);
+  const total = 114;
+  const percent = Math.round((readCount / total) * 100);
   const today = new Date().toISOString().slice(0, 10);
   const readToday = Array.isArray(source?.history) && source.history.some((h) => String(h.date || "").slice(0, 10) === today && h.valid !== false && h.action !== "unread");
   root.innerHTML = "";
@@ -186,7 +221,7 @@ export function renderProfileWidgets(data, weightedProgress, actions = {}) {
   streakCard.className = "profile-widget-card";
   streakCard.innerHTML = `
     <div class="profile-widget-label">Série en cours</div>
-    <div style="font-weight:800; font-size:22px;">🔥 ${streakValue} jours</div>
+    <div id="widget-streak-value" style="font-weight:800; font-size:22px; color:#d4af37;">🔥 ${streakValue} jours</div>
     <div class="profile-widget-sub">${streakValue > 0 ? "Série en cours" : "Commence aujourd'hui !"}</div>
   `;
 
@@ -194,9 +229,9 @@ export function renderProfileWidgets(data, weightedProgress, actions = {}) {
   progCard.className = "profile-widget-card";
   progCard.innerHTML = `
     <div class="profile-widget-label">Progression</div>
-    <div style="font-weight:800; font-size:22px;">${readCount} / ${total}</div>
-    <div class="profile-widget-bar"><div class="profile-widget-bar-fill" style="width:${percent}%;"></div></div>
-    <div class="profile-widget-sub">${percent}% du Coran</div>
+    <div id="widget-progress-value" style="font-weight:800; font-size:22px; color:#d4af37;">${readCount} / ${total}</div>
+    <div class="profile-widget-bar"><div id="widget-progress-bar" class="profile-widget-bar-fill" style="width:${percent}%; background:#d4af37;"></div></div>
+    <div id="widget-progress-pct" class="profile-widget-sub">${percent}% du Coran</div>
   `;
 
   const ctaCard = document.createElement("button");
@@ -206,8 +241,8 @@ export function renderProfileWidgets(data, weightedProgress, actions = {}) {
   ctaCard.style.textAlign = "left";
   ctaCard.innerHTML = `
     <div class="profile-widget-label">Action</div>
-    <div style="font-weight:800; font-size:18px;">▶ Commencer</div>
-    <div class="profile-widget-sub">${readToday ? "✅ Déjà lu aujourd'hui" : `🔥 ${streakValue} jours de série`}</div>
+    <div style="font-weight:800; font-size:18px; color:#d4af37;">▶ Commencer</div>
+    <div id="widget-cta-streak" class="profile-widget-sub">${readToday ? "✅ Déjà lu aujourd'hui" : `🔥 ${streakValue} jours de série`}</div>
   `;
   ctaCard.addEventListener("click", () => actions.onStartReading?.());
 

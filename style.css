@@ -175,6 +175,8 @@ h2, h3 {
 
 button {
   font-family: inherit;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .time-btn,
@@ -505,6 +507,21 @@ button {
   padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
   max-height: min(92vh, 760px);
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+#markDateModal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10000;
+  display: none;
+  place-items: center;
+  background: rgba(0,0,0,0.6);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
 }
 
 .modal-header {
@@ -597,6 +614,7 @@ button {
   opacity: 1;
   box-shadow: none;
   pointer-events: none;
+  -webkit-animation: slideDown 0.3s ease, fadeOut 0.5s ease 3.5s forwards;
   animation: slideDown 0.3s ease, fadeOut 0.5s ease 3.5s forwards;
 }
 
@@ -669,7 +687,16 @@ button {
   to { transform: translateY(0); opacity: 1; }
 }
 
+@-webkit-keyframes slideDown {
+  from { -webkit-transform: translateY(-20px); opacity: 0; }
+  to { -webkit-transform: translateY(0); opacity: 1; }
+}
+
 @keyframes fadeOut {
+  to { opacity: 0; pointer-events: none; }
+}
+
+@-webkit-keyframes fadeOut {
   to { opacity: 0; pointer-events: none; }
 }
 
@@ -743,6 +770,12 @@ button {
 .quick-date-row .secondary-btn.active {
   background: rgba(212,175,55,0.2);
   border-color: #d4af37;
+}
+
+.date-btn.active {
+  background: rgba(212, 175, 55, 0.2) !important;
+  border-color: #d4af37 !important;
+  color: #d4af37 !important;
 }
 
 .profile-widgets-grid {

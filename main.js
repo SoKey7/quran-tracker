@@ -161,13 +161,16 @@ function generateReadingByPoints(unreadSurahs, minutes) {
   const selectedIds = new Set();
   const lecture = [];
   let points = 0;
+  let i = 0;
+  const maxIterations = 100;
 
   const categories = () => Object.keys(pools).filter((c) => pools[c].length > 0);
   let cats = categories();
   console.log("Sourates non lues:", unreadSurahs.length);
   console.log("Catégories disponibles:", cats);
 
-  while (points < target && cats.length) {
+  while (points < target && cats.length && i < maxIterations) {
+    i += 1;
     const cat = cats[Math.floor(Math.random() * cats.length)];
     const p = CATEGORY_POINTS[cat] || 1;
     if (points + p > max) {
@@ -189,16 +192,20 @@ function generateReadingByPoints(unreadSurahs, minutes) {
   }
 
   console.log("Lecture générée:", lecture);
+  console.log("[GEN] Points finaux:", points);
   return lecture;
 }
 
 function generateDailyReading() {
+  const targetPts = TARGET_POINTS_BY_MINUTES[getSelectedMinutes()] || 5;
+  console.log("[GEN] Démarrage. Objectif pts:", targetPts);
   let storeData = null;
   try {
     storeData = JSON.parse(localStorage.getItem("quranTrackerData") || "{}");
   } catch {
     storeData = null;
   }
+  console.log("[GEN] Données chargées:", storeData ? "OK" : "VIDE");
   const fallbackSurahs = surahs.map((s) => ({
     id: s.numero,
     nomArabe: "",
@@ -214,7 +221,7 @@ function generateDailyReading() {
   }
   console.log("[GEN] Sourates totales:", sourceSurahs.length);
   const unread = sourceSurahs
-    .filter((s) => s.lu === false || s.lu === "Non")
+    .filter((s) => s.lu === false || s.lu === "Non" || s.lu === 0 || s.lu === "non")
     .map((s) => {
       const id = Number(s.id || s.numero);
       const fallback = surahMap.get(id);
@@ -237,6 +244,12 @@ function generateDailyReading() {
     state.currentPlan = generateReadingByPoints(unread, getSelectedMinutes());
     console.log("[GEN] Sélection finale:", state.currentPlan);
     renderDailyReading(state, { onNote: openNoteModal });
+    const listEl = document.getElementById("dailyReadingList");
+    if (listEl) {
+      listEl.style.display = "none";
+      void listEl.offsetHeight;
+      listEl.style.display = "";
+    }
     showToast("Lecture du jour generee.");
   }, 220);
 }
@@ -354,12 +367,26 @@ function openMarkDateModal(surahId) {
   document.getElementById("markTodayBtn")?.classList.add("active");
   document.getElementById("markYesterdayBtn")?.classList.remove("active");
   document.getElementById("markCustomBtn")?.classList.remove("active");
-  document.getElementById("markDateModal").classList.remove("hidden");
+  const modal = document.getElementById("markDateModal");
+  modal.classList.remove("hidden");
+  modal.style.display = "grid";
+  modal.style.opacity = "0";
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      modal.style.opacity = "1";
+      modal.style.transition = "opacity 0.2s ease";
+    });
+  });
 }
 
 function closeMarkDateModal() {
   state.pendingMarkSurahId = null;
-  document.getElementById("markDateModal").classList.add("hidden");
+  const modal = document.getElementById("markDateModal");
+  modal.style.opacity = "0";
+  setTimeout(() => {
+    modal.classList.add("hidden");
+    modal.style.display = "";
+  }, 180);
 }
 
 function resolveMarkDate() {
@@ -601,6 +628,22 @@ async function registerServiceWorker() {
 }
 
 function bindEvents() {
+  const addTapListener = (el, handler) => {
+    if (!el) return;
+    let touched = false;
+    el.addEventListener("touchend", (e) => {
+      touched = true;
+      e.preventDefault();
+      handler(e);
+    }, { passive: false });
+    el.addEventListener("click", (e) => {
+      if (touched) {
+        touched = false;
+        return;
+      }
+      handler(e);
+    });
+  };
   document.querySelectorAll(".nav-btn").forEach((btn) => btn.addEventListener("click", () => switchView(btn.dataset.view)));
   document.querySelectorAll(".time-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -612,7 +655,7 @@ function bindEvents() {
     state.query = e.target.value || "";
     render();
   });
-  document.getElementById("generateBtn").addEventListener("click", generateDailyReading);
+  addTapListener(document.getElementById("generateBtn"), generateDailyReading);
   document.getElementById("completeBtn").addEventListener("click", completeDailyReading);
   document.getElementById("notesSortSelect").addEventListener("change", render);
   document.getElementById("saveNoteBtn").addEventListener("click", saveCurrentNote);
@@ -626,9 +669,9 @@ function bindEvents() {
   });
   document.getElementById("settingsOpenBtn").addEventListener("click", () => document.getElementById("settingsModal").classList.remove("hidden"));
   document.getElementById("closeSettingsBtn").addEventListener("click", () => document.getElementById("settingsModal").classList.add("hidden"));
-  document.getElementById("closeMarkDateBtn").addEventListener("click", closeMarkDateModal);
-  document.getElementById("cancelMarkDateBtn").addEventListener("click", closeMarkDateModal);
-  document.getElementById("confirmMarkDateBtn").addEventListener("click", confirmMarkDate);
+  addTapListener(document.getElementById("closeMarkDateBtn"), closeMarkDateModal);
+  addTapListener(document.getElementById("cancelMarkDateBtn"), closeMarkDateModal);
+  addTapListener(document.getElementById("confirmMarkDateBtn"), confirmMarkDate);
   document.getElementById("addFriendBtn")?.addEventListener("click", openFriendsModal);
   document.getElementById("closeFriendsModalBtn")?.addEventListener("click", closeFriendsModal);
   document.getElementById("friendSearchBtn")?.addEventListener("click", async () => {
@@ -658,21 +701,21 @@ function bindEvents() {
       root.appendChild(card);
     });
   });
-  document.getElementById("markTodayBtn")?.addEventListener("click", () => {
+  addTapListener(document.getElementById("markTodayBtn"), () => {
     state.pendingMarkDateChoice = "today";
     document.getElementById("markCustomDateWrap")?.classList.add("hidden");
     document.getElementById("markTodayBtn")?.classList.add("active");
     document.getElementById("markYesterdayBtn")?.classList.remove("active");
     document.getElementById("markCustomBtn")?.classList.remove("active");
   });
-  document.getElementById("markYesterdayBtn")?.addEventListener("click", () => {
+  addTapListener(document.getElementById("markYesterdayBtn"), () => {
     state.pendingMarkDateChoice = "yesterday";
     document.getElementById("markCustomDateWrap")?.classList.add("hidden");
     document.getElementById("markTodayBtn")?.classList.remove("active");
     document.getElementById("markYesterdayBtn")?.classList.add("active");
     document.getElementById("markCustomBtn")?.classList.remove("active");
   });
-  document.getElementById("markCustomBtn")?.addEventListener("click", () => {
+  addTapListener(document.getElementById("markCustomBtn"), () => {
     state.pendingMarkDateChoice = "custom";
     const wrap = document.getElementById("markCustomDateWrap");
     const input = document.getElementById("markCustomDateInput");

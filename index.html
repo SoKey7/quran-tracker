@@ -15,6 +15,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script type="module" src="./firebase-config.js"></script>
 </head>
 <body>
@@ -159,7 +162,7 @@
                 <div class="reset-card-title">Réinitialiser les lectures</div>
                 <div class="reset-card-desc">Remet toutes les sourates à non lues. Conserve l'historique et les notes.</div>
               </div>
-              <button class="reset-card-btn" id="manualResetBtn" type="button">Réinitialiser</button>
+              <button class="reset-card-btn" id="manualResetBtn" type="button" style="border: 1.5px solid rgba(255,255,255,0.25) !important; color: rgba(255,255,255,0.75) !important; background: transparent !important; -webkit-appearance: none; appearance: none;">Réinitialiser</button>
             </div>
             <div class="reset-card reset-danger">
               <div class="reset-card-icon">⚠️</div>
@@ -167,7 +170,7 @@
                 <div class="reset-card-title">Réinitialisation totale</div>
                 <div class="reset-card-desc">Supprime tout : progression, historique, série et statistiques.</div>
               </div>
-              <button class="reset-card-btn danger" id="hardResetAllBtn" type="button">Supprimer</button>
+              <button class="reset-card-btn danger" id="hardResetAllBtn" type="button" style="border: 1.5px solid #c0392b !important; color: #e74c3c !important; background: transparent !important; -webkit-appearance: none; appearance: none;">Supprimer</button>
             </div>
           </div>
         </article>
@@ -213,9 +216,9 @@
       <p id="markDateModalSurah" class="muted"></p>
       <div class="settings-list">
         <div class="quick-date-row">
-          <button class="secondary-btn" id="markTodayBtn" type="button">Aujourd'hui</button>
-          <button class="secondary-btn" id="markYesterdayBtn" type="button">Hier</button>
-          <button class="secondary-btn" id="markCustomBtn" type="button">Choisir...</button>
+          <button class="secondary-btn date-btn" id="markTodayBtn" type="button">Aujourd'hui</button>
+          <button class="secondary-btn date-btn" id="markYesterdayBtn" type="button">Hier</button>
+          <button class="secondary-btn date-btn" id="markCustomBtn" type="button">Choisir...</button>
         </div>
         <div id="markCustomDateWrap" class="hidden">
           <label class="setting-item"><span>Date</span><input type="date" id="markCustomDateInput"></label>
