@@ -2,7 +2,7 @@ import { clearAll, loadAppData, saveAppData, TOTAL_SURAHS, validateData } from "
 import { addNote, deleteNote, updateNote } from "./notes.js";
 import { evaluateBadges } from "./badges.js";
 import { markSurahAsRead, markSurahAsUnread } from "./history.js";
-import { buildReadingPlan, computeWeightedProgress } from "./reading.js";
+import { computeWeightedProgress } from "./reading.js";
 import { formatWeightedLabel } from "./profile.js";
 import { getHomeWidgets } from "./widgets.js";
 import { createFriendsService } from "./friends.js";
@@ -20,6 +20,8 @@ import {
   renderTop,
   renderWidgets,
   renderFriends,
+  renderProfileWidgets,
+  showHeatmapTooltip,
   showAchievementBanner,
   showSaveSuccess,
   showToast
@@ -118,22 +120,62 @@ function getSelectedMinutes() {
   return Number(selected?.dataset.minutes || 10);
 }
 
+const CATEGORY_POINTS = { TresCourte: 1, Courte: 2, Moyenne: 5, Longue: 10 };
+const TARGET_POINTS_BY_MINUTES = { 10: 5, 20: 10, 30: 15 };
+
+function generateReadingByPoints(unreadSurahs, minutes) {
+  const target = TARGET_POINTS_BY_MINUTES[minutes] || 5;
+  const max = target + 1;
+  const pools = {
+    TresCourte: unreadSurahs.filter((s) => s.categorie === "TresCourte"),
+    Courte: unreadSurahs.filter((s) => s.categorie === "Courte"),
+    Moyenne: unreadSurahs.filter((s) => s.categorie === "Moyenne"),
+    Longue: unreadSurahs.filter((s) => s.categorie === "Longue")
+  };
+  const selectedIds = new Set();
+  const lecture = [];
+  let points = 0;
+
+  const categories = () => Object.keys(pools).filter((c) => pools[c].length > 0);
+  let cats = categories();
+  console.log("Sourates non lues:", unreadSurahs.length);
+  console.log("Catégories disponibles:", cats);
+
+  while (points < target && cats.length) {
+    const cat = cats[Math.floor(Math.random() * cats.length)];
+    const p = CATEGORY_POINTS[cat] || 1;
+    if (points + p > max) {
+      cats = cats.filter((c) => c !== cat);
+      continue;
+    }
+    const candidates = pools[cat].filter((s) => !selectedIds.has(s.numero));
+    if (!candidates.length) {
+      pools[cat] = [];
+      cats = categories();
+      continue;
+    }
+    const pick = candidates[Math.floor(Math.random() * candidates.length)];
+    lecture.push(pick);
+    selectedIds.add(pick.numero);
+    points += p;
+    pools[cat] = pools[cat].filter((s) => s.numero !== pick.numero);
+    cats = categories();
+  }
+
+  console.log("Lecture générée:", lecture);
+  return lecture;
+}
+
 function generateDailyReading() {
   const unread = surahs.filter((s) => !state.data.progress.readSurahs.includes(s.numero));
   if (!unread.length) {
-    const prestige = maybePrestige();
-    if (prestige) {
-      persist();
-      render();
-    } else {
-      showToast("Toutes les sourates sont lues pour ce cycle.");
-    }
+    showToast("Toutes les sourates ont été lues 🎉 Lance un nouveau cycle depuis ton Profil.");
     return;
   }
   const list = document.getElementById("dailyReadingList");
   list.innerHTML = '<li class="skeleton-line"></li><li class="skeleton-line"></li>';
   setTimeout(() => {
-    state.currentPlan = buildReadingPlan(unread, getSelectedMinutes(), console);
+    state.currentPlan = generateReadingByPoints(unread, getSelectedMinutes());
     renderDailyReading(state, { onNote: openNoteModal });
     showToast("Lecture du jour generee.");
   }, 220);
@@ -231,7 +273,10 @@ function openMarkDateModal(surahId) {
   state.pendingMarkSurahId = surahId;
   const surah = surahMap.get(surahId);
   document.getElementById("markDateModalSurah").textContent = `${surahId}. ${surah?.nomFr || ""}`;
-  document.getElementById("markCustomDateInput").value = "";
+  state.pendingMarkDateChoice = "today";
+  const custom = document.getElementById("markCustomDateInput");
+  if (custom) custom.value = new Date().toISOString().slice(0, 10);
+  document.getElementById("markCustomDateWrap")?.classList.add("hidden");
   document.getElementById("markDateModal").classList.remove("hidden");
 }
 
@@ -241,14 +286,14 @@ function closeMarkDateModal() {
 }
 
 function resolveMarkDate() {
-  const choice = document.querySelector("input[name='markDateChoice']:checked")?.value || "today";
+  const choice = state.pendingMarkDateChoice || "today";
   const now = new Date();
   if (choice === "today") return now;
   if (choice === "yesterday") {
     now.setDate(now.getDate() - 1);
     return now;
   }
-  const custom = document.getElementById("markCustomDateInput").value;
+  const custom = document.getElementById("markCustomDateInput")?.value;
   const customDate = custom ? new Date(`${custom}T12:00:00`) : now;
   return Number.isNaN(customDate.getTime()) ? now : customDate;
 }
@@ -259,6 +304,8 @@ function confirmMarkDate() {
   const surah = surahMap.get(surahId);
   const iso = resolveMarkDate().toISOString();
   markSurahAsRead(state.data, surahId, surah.nomFr, iso);
+  state.data.progress.surahMeta = state.data.progress.surahMeta && typeof state.data.progress.surahMeta === "object" ? state.data.progress.surahMeta : {};
+  state.data.progress.surahMeta[String(surahId)] = { date: iso };
   state.data.profile.stats.totalSurahsValidated += 1;
   if (surah.categorie === "Longue") state.data.badges.firstLongCompleted = true;
   updateStreak(iso);
@@ -302,6 +349,11 @@ function render() {
   renderDailyReading(state, { onNote: openNoteModal });
   renderHistory(state.data, surahMap);
   renderProfile(state.data, TOTAL_SURAHS, weighted, formatWeightedLabel(weighted));
+  renderProfileWidgets(state.data, weighted, {
+    onStartReading() {
+      switchView("prier");
+    }
+  });
   renderWidgets(getHomeWidgets(state.data, weighted), {
     onAction(widgetId) {
       if (widgetId === "daily") switchView("prier");
@@ -315,8 +367,8 @@ function render() {
     }
   });
   renderBadges(state.data);
-  renderMonthlyHeatmap(state.data, "heatmapRoot", showToast);
-  renderMonthlyHeatmap(state.data, "heatmapProfileRoot", showToast);
+  renderMonthlyHeatmap(state.data, "heatmapRoot", showHeatmapTooltip);
+  renderMonthlyHeatmap(state.data, "heatmapProfileRoot", showHeatmapTooltip);
   renderAllNotes(state.data, surahMap, document.getElementById("notesSortSelect").value || "recent");
   document.body.classList.toggle("light", state.data.settings.theme === "light");
   document.getElementById("themeToggle").checked = state.data.settings.theme === "light";
@@ -450,15 +502,21 @@ function bindEvents() {
   document.getElementById("closeMarkDateBtn").addEventListener("click", closeMarkDateModal);
   document.getElementById("cancelMarkDateBtn").addEventListener("click", closeMarkDateModal);
   document.getElementById("confirmMarkDateBtn").addEventListener("click", confirmMarkDate);
-  document.getElementById("addFriendBtn").addEventListener("click", () => {
-    showConfirm("Ajouter un ami mock (pseudo/code) ?").then(async (ok) => {
-      if (!ok) return;
-      const name = prompt("Pseudo ou code ami");
-      if (!name) return;
-      friendsService.addFriend(name);
-      showToast("Ami ajoute.");
-      render();
-    });
+  document.getElementById("markTodayBtn")?.addEventListener("click", () => {
+    state.pendingMarkDateChoice = "today";
+    document.getElementById("markCustomDateWrap")?.classList.add("hidden");
+  });
+  document.getElementById("markYesterdayBtn")?.addEventListener("click", () => {
+    state.pendingMarkDateChoice = "yesterday";
+    document.getElementById("markCustomDateWrap")?.classList.add("hidden");
+  });
+  document.getElementById("markCustomBtn")?.addEventListener("click", () => {
+    state.pendingMarkDateChoice = "custom";
+    const wrap = document.getElementById("markCustomDateWrap");
+    const input = document.getElementById("markCustomDateInput");
+    if (input && !input.value) input.value = new Date().toISOString().slice(0, 10);
+    wrap?.classList.remove("hidden");
+    input?.focus();
   });
   document.getElementById("themeToggle").addEventListener("change", (e) => {
     state.data.settings.theme = e.target.checked ? "light" : "dark";

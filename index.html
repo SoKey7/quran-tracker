@@ -70,13 +70,8 @@
 
       <section class="view" id="view-accueil" data-title="Accueil">
         <article class="card glass">
-          <h2>Widgets (préparation écran d'accueil)</h2>
-          <div id="widgetsRoot" class="widgets-grid"></div>
-        </article>
-        <article class="card glass">
           <div class="card-head">
             <h2>👥 Amis</h2>
-            <button class="secondary-btn" id="addFriendBtn">Ajouter ami</button>
           </div>
           <div id="friendsRoot" class="friends-grid"></div>
         </article>
@@ -135,6 +130,11 @@
         </article>
 
         <article class="card glass">
+          <h2>Aperçu widgets</h2>
+          <div id="profileWidgetsRoot" class="profile-widgets-grid"></div>
+        </article>
+
+        <article class="card glass">
           <h2>Prestige</h2>
           <p class="big-number" id="statPrestige">Prestige 0</p>
           <p class="muted">Cycles complets terminés : <span id="statCycles">0</span></p>
@@ -148,9 +148,9 @@
         </article>
 
         <article class="card glass">
-          <div class="reset-actions">
-            <button class="danger-btn" id="manualResetBtn">Reset progression</button>
-            <button class="danger-btn" id="hardResetAllBtn">Reset total</button>
+          <div class="reset-buttons-container">
+            <button id="manualResetBtn">Réinitialiser les lectures</button>
+            <button id="hardResetAllBtn">Réinitialiser totalement</button>
           </div>
         </article>
       </section>
@@ -189,24 +189,29 @@
   <div class="modal-backdrop hidden" id="markDateModal">
     <div class="modal glass">
       <div class="modal-header">
-        <h3>Marquer une sourate</h3>
+        <h3>Quand as-tu lu cette sourate ?</h3>
         <button id="closeMarkDateBtn" class="icon-btn">✖</button>
       </div>
       <p id="markDateModalSurah" class="muted"></p>
       <div class="settings-list">
-        <label class="setting-item"><span>Aujourd'hui</span><input type="radio" name="markDateChoice" value="today" checked></label>
-        <label class="setting-item"><span>Hier</span><input type="radio" name="markDateChoice" value="yesterday"></label>
-        <label class="setting-item"><span>Choisir date</span><input type="radio" name="markDateChoice" value="custom"></label>
-        <label class="setting-item"><span>Date personnalisée</span><input type="date" id="markCustomDateInput"></label>
+        <div class="quick-date-row">
+          <button class="secondary-btn" id="markTodayBtn" type="button">Aujourd'hui</button>
+          <button class="secondary-btn" id="markYesterdayBtn" type="button">Hier</button>
+          <button class="secondary-btn" id="markCustomBtn" type="button">Choisir...</button>
+        </div>
+        <div id="markCustomDateWrap" class="hidden">
+          <label class="setting-item"><span>Date</span><input type="date" id="markCustomDateInput"></label>
+        </div>
         <div class="modal-actions">
           <button class="secondary-btn" id="cancelMarkDateBtn">Annuler</button>
-          <button class="success-btn" id="confirmMarkDateBtn">OK</button>
+          <button class="success-btn" id="confirmMarkDateBtn">Valider</button>
         </div>
       </div>
     </div>
   </div>
 
   <div id="toast" class="toast hidden"></div>
+  <div id="heatmapTooltip" class="heatmap-tooltip hidden"></div>
   <div id="saveIndicator" class="save-indicator hidden">Donnees sauvegardees</div>
   <div id="achievementStack" class="achievement-stack"></div>
   <div id="confettiContainer"></div>

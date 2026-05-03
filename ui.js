@@ -4,6 +4,7 @@ import { getBadgeCards } from "./badges.js";
 
 let bannerTimer = null;
 const bannerQueue = [];
+let heatmapTooltipTimer = null;
 
 export function showToast(msg) {
   const toast = document.getElementById("toast");
@@ -11,6 +12,23 @@ export function showToast(msg) {
   toast.classList.remove("hidden");
   toast.classList.add("toast-in");
   setTimeout(() => toast.classList.add("hidden"), 1800);
+}
+
+export function showHeatmapTooltip(text) {
+  const el = document.getElementById("heatmapTooltip");
+  if (!el) return;
+  if (heatmapTooltipTimer) clearTimeout(heatmapTooltipTimer);
+  el.textContent = text;
+  el.classList.remove("hidden");
+  const hide = () => {
+    el.classList.add("hidden");
+    document.removeEventListener("pointerdown", hide);
+  };
+  document.removeEventListener("pointerdown", hide);
+  document.addEventListener("pointerdown", hide, { once: true });
+  heatmapTooltipTimer = setTimeout(() => {
+    el.classList.add("hidden");
+  }, 2500);
 }
 
 export function showSaveSuccess() {
@@ -144,6 +162,44 @@ export function renderProfile(data, totalSurahs, weightedProgress, weightedLabel
   document.getElementById("statLastRead").textContent = data.history[0] ? new Date(data.history[0].date).toLocaleDateString("fr-FR") : "Aucune";
   document.getElementById("statPrestige").textContent = `Prestige ${data.prestige}`;
   document.getElementById("statCycles").textContent = `${data.progress.cyclesCompleted}`;
+}
+
+export function renderProfileWidgets(data, weightedProgress, actions = {}) {
+  const root = document.getElementById("profileWidgetsRoot");
+  if (!root) return;
+  root.innerHTML = "";
+
+  const streakCard = document.createElement("div");
+  streakCard.className = "profile-widget-card";
+  streakCard.innerHTML = `
+    <div class="profile-widget-label">Série en cours</div>
+    <div style="font-weight:800; font-size:22px;">🔥 ${data.streak.current} jours</div>
+  `;
+
+  const progCard = document.createElement("div");
+  progCard.className = "profile-widget-card";
+  progCard.innerHTML = `
+    <div class="profile-widget-label">Progression</div>
+    <div style="font-weight:800; font-size:22px;">${data.progress.readCount} / ${data.progress.total || 114}</div>
+    <div class="profile-widget-bar"><div class="profile-widget-bar-fill" style="width:${weightedProgress.percent}%;"></div></div>
+    <div class="profile-widget-sub">${weightedProgress.percent}% du Coran</div>
+  `;
+
+  const ctaCard = document.createElement("button");
+  ctaCard.type = "button";
+  ctaCard.className = "profile-widget-card";
+  ctaCard.style.border = "none";
+  ctaCard.style.textAlign = "left";
+  ctaCard.innerHTML = `
+    <div class="profile-widget-label">Action</div>
+    <div style="font-weight:800; font-size:18px;">Commencer la lecture →</div>
+    <div class="profile-widget-sub">🔥 ${data.streak.current} jours</div>
+  `;
+  ctaCard.addEventListener("click", () => actions.onStartReading?.());
+
+  root.appendChild(streakCard);
+  root.appendChild(progCard);
+  root.appendChild(ctaCard);
 }
 
 export function renderWidgets(widgetSpecs, actions = {}) {

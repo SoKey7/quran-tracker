@@ -23,7 +23,7 @@ function createDefaultData() {
   return {
     version: DATA_VERSION,
     profile: { avatar: null, stats: { totalSessions: 0, totalMinutes: 0, totalSurahsValidated: 0 } },
-    progress: { total: TOTAL_SURAHS, readSurahs: [], readCount: 0, cyclesCompleted: 0 },
+    progress: { total: TOTAL_SURAHS, readSurahs: [], readCount: 0, cyclesCompleted: 0, surahMeta: {} },
     history: [],
     notes: {},
     badges: { unlocked: [], favorites: [] },
@@ -99,6 +99,7 @@ export function migrateData(input) {
   merged.progress.total = TOTAL_SURAHS;
   merged.progress.readSurahs = finalReadSurahs;
   merged.progress.readCount = finalReadSurahs.length;
+  merged.progress.surahMeta = merged.progress.surahMeta && typeof merged.progress.surahMeta === "object" ? merged.progress.surahMeta : {};
   merged.history = migrateHistory(merged.history);
   merged.badges.unlocked = Array.isArray(merged.badges.unlocked) ? merged.badges.unlocked : [];
   merged.badges.favorites = Array.isArray(merged.badges.favorites) ? merged.badges.favorites : [];
