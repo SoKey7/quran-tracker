@@ -167,22 +167,36 @@ export function renderProfile(data, totalSurahs, weightedProgress, weightedLabel
 export function renderProfileWidgets(data, weightedProgress, actions = {}) {
   const root = document.getElementById("profileWidgetsRoot");
   if (!root) return;
+  let source = data;
+  try {
+    const raw = localStorage.getItem("quranTrackerData");
+    if (raw) source = JSON.parse(raw);
+  } catch {
+    source = data;
+  }
+  const streakValue = Number(source?.streak?.current ?? source?.streak ?? data.streak.current ?? 0);
+  const readCount = Number(source?.progress?.readCount ?? data.progress.readCount ?? 0);
+  const total = Number(source?.progress?.total ?? 114);
+  const percent = Math.round((readCount / Math.max(total, 1)) * 100);
+  const today = new Date().toISOString().slice(0, 10);
+  const readToday = Array.isArray(source?.history) && source.history.some((h) => String(h.date || "").slice(0, 10) === today && h.valid !== false && h.action !== "unread");
   root.innerHTML = "";
 
   const streakCard = document.createElement("div");
   streakCard.className = "profile-widget-card";
   streakCard.innerHTML = `
     <div class="profile-widget-label">Série en cours</div>
-    <div style="font-weight:800; font-size:22px;">🔥 ${data.streak.current} jours</div>
+    <div style="font-weight:800; font-size:22px;">🔥 ${streakValue} jours</div>
+    <div class="profile-widget-sub">${streakValue > 0 ? "Série en cours" : "Commence aujourd'hui !"}</div>
   `;
 
   const progCard = document.createElement("div");
   progCard.className = "profile-widget-card";
   progCard.innerHTML = `
     <div class="profile-widget-label">Progression</div>
-    <div style="font-weight:800; font-size:22px;">${data.progress.readCount} / ${data.progress.total || 114}</div>
-    <div class="profile-widget-bar"><div class="profile-widget-bar-fill" style="width:${weightedProgress.percent}%;"></div></div>
-    <div class="profile-widget-sub">${weightedProgress.percent}% du Coran</div>
+    <div style="font-weight:800; font-size:22px;">${readCount} / ${total}</div>
+    <div class="profile-widget-bar"><div class="profile-widget-bar-fill" style="width:${percent}%;"></div></div>
+    <div class="profile-widget-sub">${percent}% du Coran</div>
   `;
 
   const ctaCard = document.createElement("button");
@@ -192,8 +206,8 @@ export function renderProfileWidgets(data, weightedProgress, actions = {}) {
   ctaCard.style.textAlign = "left";
   ctaCard.innerHTML = `
     <div class="profile-widget-label">Action</div>
-    <div style="font-weight:800; font-size:18px;">Commencer la lecture →</div>
-    <div class="profile-widget-sub">🔥 ${data.streak.current} jours</div>
+    <div style="font-weight:800; font-size:18px;">▶ Commencer</div>
+    <div class="profile-widget-sub">${readToday ? "✅ Déjà lu aujourd'hui" : `🔥 ${streakValue} jours de série`}</div>
   `;
   ctaCard.addEventListener("click", () => actions.onStartReading?.());
 
@@ -204,6 +218,7 @@ export function renderProfileWidgets(data, weightedProgress, actions = {}) {
 
 export function renderWidgets(widgetSpecs, actions = {}) {
   const root = document.getElementById("widgetsRoot");
+  if (!root) return;
   root.innerHTML = "";
   widgetSpecs.forEach((w) => {
     const card = document.createElement("div");
@@ -225,7 +240,7 @@ export function renderFriends(friends, actions = {}) {
   if (!root) return;
   root.innerHTML = "";
   if (!friends.length) {
-    root.innerHTML = '<p class="muted">Aucun ami pour le moment.</p>';
+    root.innerHTML = '<p class="muted">Ajoute des amis pour voir leur progression 👥</p>';
     return;
   }
   friends.forEach((friend) => {
@@ -244,6 +259,32 @@ export function renderFriends(friends, actions = {}) {
     encourageBtn.disabled = !actions.canEncourage?.(friend.id);
     encourageBtn.addEventListener("click", () => actions.onEncourage?.(friend.id));
     card.appendChild(encourageBtn);
+    root.appendChild(card);
+  });
+}
+
+export function renderFriendRequests(requests, actions = {}) {
+  const root = document.getElementById("friendRequestsRoot");
+  if (!root) return;
+  root.innerHTML = "";
+  if (!requests.length) return;
+  requests.forEach((req) => {
+    const card = document.createElement("div");
+    card.className = "friend-card";
+    card.innerHTML = `<strong>${req.fromPseudo || req.from || "Demande"}</strong><div class="muted">Demande d'ami reçue</div>`;
+    const actionsWrap = document.createElement("div");
+    actionsWrap.className = "result-actions";
+    const accept = document.createElement("button");
+    accept.className = "secondary-btn";
+    accept.textContent = "Accepter";
+    accept.addEventListener("click", () => actions.onAccept?.(req));
+    const reject = document.createElement("button");
+    reject.className = "secondary-btn";
+    reject.textContent = "Refuser";
+    reject.addEventListener("click", () => actions.onReject?.(req));
+    actionsWrap.appendChild(accept);
+    actionsWrap.appendChild(reject);
+    card.appendChild(actionsWrap);
     root.appendChild(card);
   });
 }

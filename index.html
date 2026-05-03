@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f1a16">
   <meta name="description" content="Quran Tracker - Suivi gamifié de lecture du Coran">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -15,6 +15,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <script type="module" src="./firebase-config.js"></script>
 </head>
 <body>
   <div id="app">
@@ -69,12 +70,6 @@
       </section>
 
       <section class="view" id="view-accueil" data-title="Accueil">
-        <article class="card glass">
-          <div class="card-head">
-            <h2>👥 Amis</h2>
-          </div>
-          <div id="friendsRoot" class="friends-grid"></div>
-        </article>
 
         <article class="card glass">
           <h2>Heatmap mensuelle</h2>
@@ -135,6 +130,15 @@
         </article>
 
         <article class="card glass">
+          <div class="card-head">
+            <h2>👥 Amis</h2>
+            <button class="secondary-btn" id="addFriendBtn" type="button">Ajouter un ami</button>
+          </div>
+          <div id="friendRequestsRoot" class="friends-grid"></div>
+          <div id="friendsRoot" class="friends-grid"></div>
+        </article>
+
+        <article class="card glass">
           <h2>Prestige</h2>
           <p class="big-number" id="statPrestige">Prestige 0</p>
           <p class="muted">Cycles complets terminés : <span id="statCycles">0</span></p>
@@ -148,9 +152,23 @@
         </article>
 
         <article class="card glass">
-          <div class="reset-buttons-container">
-            <button id="manualResetBtn">Réinitialiser les lectures</button>
-            <button id="hardResetAllBtn">Réinitialiser totalement</button>
+          <div class="reset-section">
+            <div class="reset-card">
+              <div class="reset-card-icon">🔄</div>
+              <div class="reset-card-text">
+                <div class="reset-card-title">Réinitialiser les lectures</div>
+                <div class="reset-card-desc">Remet toutes les sourates à non lues. Conserve l'historique et les notes.</div>
+              </div>
+              <button class="reset-card-btn" id="manualResetBtn" type="button">Réinitialiser</button>
+            </div>
+            <div class="reset-card reset-danger">
+              <div class="reset-card-icon">⚠️</div>
+              <div class="reset-card-text">
+                <div class="reset-card-title">Réinitialisation totale</div>
+                <div class="reset-card-desc">Supprime tout : progression, historique, série et statistiques.</div>
+              </div>
+              <button class="reset-card-btn danger" id="hardResetAllBtn" type="button">Supprimer</button>
+            </div>
           </div>
         </article>
       </section>
@@ -160,7 +178,7 @@
       <button class="nav-btn active" data-view="prier">🕊️<span>Prier</span></button>
       <button class="nav-btn" data-view="accueil">🏠<span>Accueil</span></button>
       <button class="nav-btn" data-view="marquer">✅<span>Marquer</span></button>
-      <button class="nav-btn" data-view="profil">👤<span>Profil</span></button>
+      <button class="nav-btn" data-view="profil">👤<span>Profil</span><span id="profilePendingBadge" class="pending-badge hidden">•</span></button>
     </footer>
   </div>
 
@@ -210,6 +228,20 @@
     </div>
   </div>
 
+  <div class="modal-backdrop hidden" id="friendsModal">
+    <div class="modal glass">
+      <div class="modal-header">
+        <h3>Ajouter un ami</h3>
+        <button id="closeFriendsModalBtn" class="icon-btn">✖</button>
+      </div>
+      <div class="settings-list">
+        <input id="friendSearchInput" type="text" placeholder="Pseudo ou email..." class="note-input">
+        <button id="friendSearchBtn" class="secondary-btn" type="button">Rechercher</button>
+        <div id="friendSearchResults" class="friends-grid"></div>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" class="toast hidden"></div>
   <div id="heatmapTooltip" class="heatmap-tooltip hidden"></div>
   <div id="saveIndicator" class="save-indicator hidden">Donnees sauvegardees</div>
@@ -244,6 +276,19 @@
       <div class="modal-actions">
         <button class="secondary-btn" id="confirmCancelBtn">Annuler</button>
         <button class="success-btn" id="confirmOkBtn">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="auth-gate hidden" id="authGate">
+    <div class="auth-card glass">
+      <h3>Connexion Quran Tracker</h3>
+      <div class="settings-list">
+        <input id="authPseudoInput" class="note-input" type="text" placeholder="Pseudo">
+        <input id="authEmailInput" class="note-input" type="email" placeholder="Email">
+        <input id="authPasswordInput" class="note-input" type="password" placeholder="Mot de passe">
+        <button id="authSignUpBtn" class="success-btn" type="button">Créer un compte</button>
+        <button id="authSignInBtn" class="secondary-btn" type="button">Se connecter</button>
       </div>
     </div>
   </div>

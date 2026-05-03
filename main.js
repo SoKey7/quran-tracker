@@ -6,6 +6,18 @@ import { computeWeightedProgress } from "./reading.js";
 import { formatWeightedLabel } from "./profile.js";
 import { getHomeWidgets } from "./widgets.js";
 import { createFriendsService } from "./friends.js";
+import { isFirebaseConfigured } from "./firebase-config.js";
+import {
+  watchAuth,
+  signUp,
+  signIn,
+  syncUserStats,
+  searchUsersByPseudoOrEmail,
+  sendFriendRequest,
+  getIncomingFriendRequests,
+  respondToFriendRequest,
+  getFriends
+} from "./firebase-service.js";
 import {
   closeNotesModal,
   openNotesModal,
@@ -21,6 +33,7 @@ import {
   renderWidgets,
   renderFriends,
   renderProfileWidgets,
+  renderFriendRequests,
   showHeatmapTooltip,
   showAchievementBanner,
   showSaveSuccess,
@@ -67,7 +80,10 @@ const state = {
   activeView: "prier",
   activeNoteSurahId: null,
   activeEditNoteId: null,
-  pendingMarkSurahId: null
+  pendingMarkSurahId: null,
+  pendingMarkDateChoice: "today",
+  authUser: null,
+  incomingRequests: []
 };
 let friendsService = null;
 
@@ -88,7 +104,17 @@ function switchView(viewName) {
   document.getElementById(`view-${viewName}`).classList.add("active");
   document.querySelectorAll(".nav-btn").forEach((n) => n.classList.toggle("active", n.dataset.view === viewName));
   document.getElementById("pageTitleText").textContent = document.getElementById(`view-${viewName}`).dataset.title || "Quran Tracker";
+  if (viewName === "profil") refreshWidgets();
   render();
+}
+
+function refreshWidgets() {
+  const weighted = computeWeightedProgress(state.data.progress.readSurahs, surahs);
+  renderProfileWidgets(state.data, weighted, {
+    onStartReading() {
+      switchView("prier");
+    }
+  });
 }
 
 function updateStreak(isoDate) {
@@ -167,7 +193,40 @@ function generateReadingByPoints(unreadSurahs, minutes) {
 }
 
 function generateDailyReading() {
-  const unread = surahs.filter((s) => !state.data.progress.readSurahs.includes(s.numero));
+  let storeData = null;
+  try {
+    storeData = JSON.parse(localStorage.getItem("quranTrackerData") || "{}");
+  } catch {
+    storeData = null;
+  }
+  const fallbackSurahs = surahs.map((s) => ({
+    id: s.numero,
+    nomArabe: "",
+    nomFrancais: s.nomFr,
+    categorie: s.categorie,
+    lu: state.data.progress.readSurahs.includes(s.numero),
+    date: state.data.progress?.surahMeta?.[String(s.numero)]?.date || null
+  }));
+  const sourceSurahs = Array.isArray(storeData?.sourates) ? storeData.sourates : fallbackSurahs;
+  if (!Array.isArray(storeData?.sourates)) {
+    state.data.sourates = fallbackSurahs;
+    persist();
+  }
+  console.log("[GEN] Sourates totales:", sourceSurahs.length);
+  const unread = sourceSurahs
+    .filter((s) => s.lu === false || s.lu === "Non")
+    .map((s) => {
+      const id = Number(s.id || s.numero);
+      const fallback = surahMap.get(id);
+      return {
+        numero: id,
+        nomFr: s.nomFrancais || s.nomFr || fallback?.nomFr || `Sourate ${id}`,
+        categorie: s.categorie || fallback?.categorie || "Courte"
+      };
+    });
+  console.log("[GEN] Non lues:", unread.length);
+  const objectif = TARGET_POINTS_BY_MINUTES[getSelectedMinutes()] || 5;
+  console.log("[GEN] Objectif pts:", objectif);
   if (!unread.length) {
     showToast("Toutes les sourates ont été lues 🎉 Lance un nouveau cycle depuis ton Profil.");
     return;
@@ -176,6 +235,7 @@ function generateDailyReading() {
   list.innerHTML = '<li class="skeleton-line"></li><li class="skeleton-line"></li>';
   setTimeout(() => {
     state.currentPlan = generateReadingByPoints(unread, getSelectedMinutes());
+    console.log("[GEN] Sélection finale:", state.currentPlan);
     renderDailyReading(state, { onNote: openNoteModal });
     showToast("Lecture du jour generee.");
   }, 220);
@@ -190,6 +250,13 @@ function completeDailyReading() {
     markSurahAsRead(state.data, surah.numero, surah.nomFr, iso);
     if (!already) validated += 1;
     if (surah.categorie === "Longue") state.data.badges.firstLongCompleted = true;
+    if (Array.isArray(state.data.sourates)) {
+      const target = state.data.sourates.find((s) => Number(s.id || s.numero) === surah.numero);
+      if (target) {
+        target.lu = true;
+        target.date = iso.slice(0, 10);
+      }
+    }
   });
   state.data.profile.stats.totalSessions += 1;
   state.data.profile.stats.totalMinutes += getSelectedMinutes();
@@ -212,6 +279,13 @@ function toggleSurahRead(id) {
       if (!ok) return;
       const iso = new Date().toISOString();
       markSurahAsUnread(state.data, id, surah.nomFr, iso);
+      if (Array.isArray(state.data.sourates)) {
+        const target = state.data.sourates.find((s) => Number(s.id || s.numero) === id);
+        if (target) {
+          target.lu = false;
+          target.date = null;
+        }
+      }
       updateStreak(iso);
       maybePrestige();
       evaluateBadges(state.data, showAchievementBanner);
@@ -277,6 +351,9 @@ function openMarkDateModal(surahId) {
   const custom = document.getElementById("markCustomDateInput");
   if (custom) custom.value = new Date().toISOString().slice(0, 10);
   document.getElementById("markCustomDateWrap")?.classList.add("hidden");
+  document.getElementById("markTodayBtn")?.classList.add("active");
+  document.getElementById("markYesterdayBtn")?.classList.remove("active");
+  document.getElementById("markCustomBtn")?.classList.remove("active");
   document.getElementById("markDateModal").classList.remove("hidden");
 }
 
@@ -306,6 +383,13 @@ function confirmMarkDate() {
   markSurahAsRead(state.data, surahId, surah.nomFr, iso);
   state.data.progress.surahMeta = state.data.progress.surahMeta && typeof state.data.progress.surahMeta === "object" ? state.data.progress.surahMeta : {};
   state.data.progress.surahMeta[String(surahId)] = { date: iso };
+  if (Array.isArray(state.data.sourates)) {
+    const target = state.data.sourates.find((s) => Number(s.id || s.numero) === surahId);
+    if (target) {
+      target.lu = true;
+      target.date = iso.slice(0, 10);
+    }
+  }
   state.data.profile.stats.totalSurahsValidated += 1;
   if (surah.categorie === "Longue") state.data.badges.firstLongCompleted = true;
   updateStreak(iso);
@@ -349,11 +433,7 @@ function render() {
   renderDailyReading(state, { onNote: openNoteModal });
   renderHistory(state.data, surahMap);
   renderProfile(state.data, TOTAL_SURAHS, weighted, formatWeightedLabel(weighted));
-  renderProfileWidgets(state.data, weighted, {
-    onStartReading() {
-      switchView("prier");
-    }
-  });
+  refreshWidgets();
   renderWidgets(getHomeWidgets(state.data, weighted), {
     onAction(widgetId) {
       if (widgetId === "daily") switchView("prier");
@@ -379,6 +459,43 @@ function render() {
   document.getElementById("notificationTimeInput").value = state.data.settings.notifications.time || "20:00";
 }
 
+async function refreshFirebaseFriends() {
+  if (!isFirebaseConfigured() || !state.authUser) return;
+  await syncUserStats(state.authUser.uid, {
+    uid: state.authUser.uid,
+    streak: state.data.streak.current,
+    progress: state.data.progress.readCount,
+    prestige: state.data.prestige
+  });
+  const [friends, requests] = await Promise.all([
+    getFriends(state.authUser.uid),
+    getIncomingFriendRequests(state.authUser.uid)
+  ]);
+  state.incomingRequests = requests;
+  renderFriends(friends, {
+    canEncourage: () => false,
+    onEncourage: () => {}
+  });
+  renderFriendRequests(requests, {
+    onAccept: async (req) => {
+      await respondToFriendRequest(req.id, req.from, state.authUser.uid, true);
+      await refreshFirebaseFriends();
+    },
+    onReject: async (req) => {
+      await respondToFriendRequest(req.id, req.from, state.authUser.uid, false);
+      await refreshFirebaseFriends();
+    }
+  });
+}
+
+function openFriendsModal() {
+  document.getElementById("friendsModal")?.classList.remove("hidden");
+}
+
+function closeFriendsModal() {
+  document.getElementById("friendsModal")?.classList.add("hidden");
+}
+
 function runFullReset() {
   showConfirm("Reset total: continuer ?").then(async (ok) => {
     if (!ok) return;
@@ -394,6 +511,16 @@ function runFullReset() {
     persist();
     showToast("Reinitialisation terminee.");
     window.location.reload();
+  });
+}
+
+function runCycleReset() {
+  showConfirm("Réinitialiser uniquement les lectures ?").then((ok) => {
+    if (!ok) return;
+    state.data.progress.readSurahs = [];
+    state.data.progress.readCount = 0;
+    persist();
+    render();
   });
 }
 
@@ -502,13 +629,48 @@ function bindEvents() {
   document.getElementById("closeMarkDateBtn").addEventListener("click", closeMarkDateModal);
   document.getElementById("cancelMarkDateBtn").addEventListener("click", closeMarkDateModal);
   document.getElementById("confirmMarkDateBtn").addEventListener("click", confirmMarkDate);
+  document.getElementById("addFriendBtn")?.addEventListener("click", openFriendsModal);
+  document.getElementById("closeFriendsModalBtn")?.addEventListener("click", closeFriendsModal);
+  document.getElementById("friendSearchBtn")?.addEventListener("click", async () => {
+    const input = document.getElementById("friendSearchInput");
+    const term = (input?.value || "").trim();
+    if (!term) return;
+    if (!isFirebaseConfigured() || !state.authUser) return showToast("Firebase non configure.");
+    const results = await searchUsersByPseudoOrEmail(term, state.authUser.uid);
+    const root = document.getElementById("friendSearchResults");
+    root.innerHTML = "";
+    if (!results.length) {
+      root.innerHTML = '<p class="muted">Aucun utilisateur trouvé.</p>';
+      return;
+    }
+    results.forEach((user) => {
+      const card = document.createElement("div");
+      card.className = "friend-card";
+      card.innerHTML = `<strong>${user.pseudo || user.email}</strong><div class="muted">🔥 ${user.streak || 0} jours</div>`;
+      const btn = document.createElement("button");
+      btn.className = "secondary-btn";
+      btn.textContent = "Ajouter";
+      btn.addEventListener("click", async () => {
+        await sendFriendRequest(state.authUser.uid, user.uid);
+        showToast("Demande envoyee.");
+      });
+      card.appendChild(btn);
+      root.appendChild(card);
+    });
+  });
   document.getElementById("markTodayBtn")?.addEventListener("click", () => {
     state.pendingMarkDateChoice = "today";
     document.getElementById("markCustomDateWrap")?.classList.add("hidden");
+    document.getElementById("markTodayBtn")?.classList.add("active");
+    document.getElementById("markYesterdayBtn")?.classList.remove("active");
+    document.getElementById("markCustomBtn")?.classList.remove("active");
   });
   document.getElementById("markYesterdayBtn")?.addEventListener("click", () => {
     state.pendingMarkDateChoice = "yesterday";
     document.getElementById("markCustomDateWrap")?.classList.add("hidden");
+    document.getElementById("markTodayBtn")?.classList.remove("active");
+    document.getElementById("markYesterdayBtn")?.classList.add("active");
+    document.getElementById("markCustomBtn")?.classList.remove("active");
   });
   document.getElementById("markCustomBtn")?.addEventListener("click", () => {
     state.pendingMarkDateChoice = "custom";
@@ -516,7 +678,31 @@ function bindEvents() {
     const input = document.getElementById("markCustomDateInput");
     if (input && !input.value) input.value = new Date().toISOString().slice(0, 10);
     wrap?.classList.remove("hidden");
+    document.getElementById("markTodayBtn")?.classList.remove("active");
+    document.getElementById("markYesterdayBtn")?.classList.remove("active");
+    document.getElementById("markCustomBtn")?.classList.add("active");
     input?.focus();
+  });
+  document.getElementById("authSignUpBtn")?.addEventListener("click", async () => {
+    if (!isFirebaseConfigured()) return showToast("Configure Firebase d'abord.");
+    try {
+      const pseudo = document.getElementById("authPseudoInput").value.trim();
+      const email = document.getElementById("authEmailInput").value.trim();
+      const password = document.getElementById("authPasswordInput").value;
+      await signUp(pseudo, email, password);
+    } catch {
+      showToast("Erreur inscription.");
+    }
+  });
+  document.getElementById("authSignInBtn")?.addEventListener("click", async () => {
+    if (!isFirebaseConfigured()) return showToast("Configure Firebase d'abord.");
+    try {
+      const email = document.getElementById("authEmailInput").value.trim();
+      const password = document.getElementById("authPasswordInput").value;
+      await signIn(email, password);
+    } catch {
+      showToast("Erreur connexion.");
+    }
   });
   document.getElementById("themeToggle").addEventListener("change", (e) => {
     state.data.settings.theme = e.target.checked ? "light" : "dark";
@@ -552,7 +738,7 @@ function bindEvents() {
     await sendNotificationNow();
     showToast("Notification de test envoyee.");
   });
-  document.getElementById("manualResetBtn").addEventListener("click", runFullReset);
+  document.getElementById("manualResetBtn").addEventListener("click", runCycleReset);
   document.getElementById("hardResetAllBtn").addEventListener("click", runFullReset);
   document.getElementById("hardResetBtn").addEventListener("click", runFullReset);
   document.getElementById("exportBtn").addEventListener("click", () => {
@@ -624,6 +810,19 @@ updateNotificationStatus();
   await registerServiceWorker();
   await ensureDailyNotificationScheduling();
 })();
+if (isFirebaseConfigured()) {
+  watchAuth(async (user) => {
+    state.authUser = user || null;
+    document.getElementById("authGate")?.classList.toggle("hidden", !!user);
+    if (user) {
+      await refreshFirebaseFriends();
+      const badge = document.getElementById("profilePendingBadge");
+      if (badge) badge.classList.toggle("hidden", !state.incomingRequests.length);
+    }
+  });
+} else {
+  document.getElementById("authGate")?.classList.add("hidden");
+}
 try {
   const raw = localStorage.getItem("quranTrackerData");
   if (raw) JSON.parse(raw);
