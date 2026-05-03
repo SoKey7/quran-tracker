@@ -9,6 +9,7 @@ export function showToast(msg) {
   const toast = document.getElementById("toast");
   toast.textContent = msg;
   toast.classList.remove("hidden");
+  toast.classList.add("toast-in");
   setTimeout(() => toast.classList.add("hidden"), 1800);
 }
 
@@ -47,11 +48,10 @@ function flushBannerQueue() {
   }, 4000);
 }
 
-export function renderTop(data, totalSurahs) {
-  const percent = Math.round((data.progress.readCount / totalSurahs) * 100);
+export function renderTop(data, totalSurahs, weightedProgress) {
   document.getElementById("progressText").textContent = `${data.progress.readCount} / ${totalSurahs}`;
-  document.getElementById("progressPercent").textContent = `${percent}%`;
-  document.getElementById("globalProgressFill").style.width = `${percent}%`;
+  document.getElementById("progressPercent").textContent = `${weightedProgress.percent}%`;
+  document.getElementById("globalProgressFill").style.width = `${weightedProgress.percent}%`;
   document.getElementById("streakLabel").textContent = `🔥 ${data.streak.current} jours`;
   document.getElementById("prestigeBadge").textContent = `⭐ Prestige ${data.prestige}`;
 }
@@ -134,10 +134,9 @@ export function renderHistory(data, surahsById) {
   });
 }
 
-export function renderProfile(data, totalSurahs) {
-  const percent = Math.round((data.progress.readCount / totalSurahs) * 100);
+export function renderProfile(data, totalSurahs, weightedProgress, weightedLabel) {
   document.getElementById("profileProgressText").textContent = `${data.progress.readCount} / ${totalSurahs}`;
-  document.getElementById("profileProgressPercent").textContent = `${percent}%`;
+  document.getElementById("profileProgressPercent").textContent = weightedLabel || `${weightedProgress.percent}%`;
   document.getElementById("statTotalTime").textContent = `${data.profile.stats.totalMinutes} min`;
   document.getElementById("statSessions").textContent = `${data.profile.stats.totalSessions}`;
   document.getElementById("statAvgDay").textContent = `${Math.round((data.profile.stats.totalMinutes || 0) / Math.max(data.streak.current, 1))} min`;
@@ -145,6 +144,52 @@ export function renderProfile(data, totalSurahs) {
   document.getElementById("statLastRead").textContent = data.history[0] ? new Date(data.history[0].date).toLocaleDateString("fr-FR") : "Aucune";
   document.getElementById("statPrestige").textContent = `Prestige ${data.prestige}`;
   document.getElementById("statCycles").textContent = `${data.progress.cyclesCompleted}`;
+}
+
+export function renderWidgets(widgetSpecs, actions = {}) {
+  const root = document.getElementById("widgetsRoot");
+  root.innerHTML = "";
+  widgetSpecs.forEach((w) => {
+    const card = document.createElement("div");
+    card.className = "widget-card";
+    card.innerHTML = `<h4>${w.title}</h4><div class="widget-value">${w.value}</div>`;
+    if (w.actionLabel) {
+      const button = document.createElement("button");
+      button.className = "widget-action";
+      button.textContent = w.actionLabel;
+      button.addEventListener("click", () => actions.onAction?.(w.id));
+      card.appendChild(button);
+    }
+    root.appendChild(card);
+  });
+}
+
+export function renderFriends(friends, actions = {}) {
+  const root = document.getElementById("friendsRoot");
+  if (!root) return;
+  root.innerHTML = "";
+  if (!friends.length) {
+    root.innerHTML = '<p class="muted">Aucun ami pour le moment.</p>';
+    return;
+  }
+  friends.forEach((friend) => {
+    const card = document.createElement("div");
+    card.className = "friend-card";
+    card.innerHTML = `
+      <strong>${friend.pseudo}</strong>
+      <div class="muted">🔥 ${friend.streak} jours</div>
+      <div class="muted">${friend.progressPercent}%</div>
+      <div class="muted">Prestige ${friend.prestige}</div>
+      <div class="muted">Activite: ${new Date(friend.lastActivityAt).toLocaleDateString("fr-FR")}</div>
+    `;
+    const encourageBtn = document.createElement("button");
+    encourageBtn.className = "secondary-btn";
+    encourageBtn.textContent = "Encourager";
+    encourageBtn.disabled = !actions.canEncourage?.(friend.id);
+    encourageBtn.addEventListener("click", () => actions.onEncourage?.(friend.id));
+    card.appendChild(encourageBtn);
+    root.appendChild(card);
+  });
 }
 
 export function renderBadges(data) {

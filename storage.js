@@ -3,7 +3,7 @@ const STORAGE_TEMP_KEY = "quranTrackerData_tmp";
 const LEGACY_ROOT_KEY = "quranTrackerStore";
 const LEGACY_KEYS = ["profile", "progress", "readSurahs", "history", "prestige", "streak", "settings"];
 const APP_KEYS = [STORAGE_KEY, STORAGE_TEMP_KEY, LEGACY_ROOT_KEY, ...LEGACY_KEYS];
-const DATA_VERSION = 2;
+const DATA_VERSION = 3;
 const TOTAL_SURAHS = 114;
 
 function safeParse(raw, fallback = null) {
@@ -35,7 +35,12 @@ function createDefaultData() {
       notifications: { enabled: false, time: "20:00", lastSentDate: null }
     },
     streak: { current: 0, max: 0, lastDate: null },
-    prestige: 0
+    prestige: 0,
+    friends: {
+      profileCode: `QTR-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+      list: [],
+      encouragements: {}
+    }
   };
 }
 
@@ -98,6 +103,14 @@ export function migrateData(input) {
   merged.badges.unlocked = Array.isArray(merged.badges.unlocked) ? merged.badges.unlocked : [];
   merged.badges.favorites = Array.isArray(merged.badges.favorites) ? merged.badges.favorites : [];
   merged.notes = merged.notes && typeof merged.notes === "object" ? merged.notes : {};
+  merged.friends = merged.friends && typeof merged.friends === "object" ? merged.friends : defaults.friends;
+  merged.friends.profileCode = typeof merged.friends.profileCode === "string" && merged.friends.profileCode
+    ? merged.friends.profileCode
+    : defaults.friends.profileCode;
+  merged.friends.list = Array.isArray(merged.friends.list) ? merged.friends.list : [];
+  merged.friends.encouragements = merged.friends.encouragements && typeof merged.friends.encouragements === "object"
+    ? merged.friends.encouragements
+    : {};
   Object.keys(merged.notes).forEach((k) => {
     const arr = Array.isArray(merged.notes[k]) ? merged.notes[k] : [];
     merged.notes[k] = arr

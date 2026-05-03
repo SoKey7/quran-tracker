@@ -2,6 +2,10 @@ import { clearAll, loadAppData, saveAppData, TOTAL_SURAHS, validateData } from "
 import { addNote, deleteNote, updateNote } from "./notes.js";
 import { evaluateBadges } from "./badges.js";
 import { markSurahAsRead, markSurahAsUnread } from "./history.js";
+import { buildReadingPlan, computeWeightedProgress } from "./reading.js";
+import { formatWeightedLabel } from "./profile.js";
+import { getHomeWidgets } from "./widgets.js";
+import { createFriendsService } from "./friends.js";
 import {
   closeNotesModal,
   openNotesModal,
@@ -14,6 +18,8 @@ import {
   renderMonthlyHeatmap,
   renderSurahNotesList,
   renderTop,
+  renderWidgets,
+  renderFriends,
   showAchievementBanner,
   showSaveSuccess,
   showToast
@@ -58,8 +64,10 @@ const state = {
   query: "",
   activeView: "prier",
   activeNoteSurahId: null,
-  activeEditNoteId: null
+  activeEditNoteId: null,
+  pendingMarkSurahId: null
 };
+let friendsService = null;
 
 function persist() {
   state.data = saveAppData(state.data);
@@ -112,11 +120,23 @@ function getSelectedMinutes() {
 
 function generateDailyReading() {
   const unread = surahs.filter((s) => !state.data.progress.readSurahs.includes(s.numero));
-  if (!unread.length) return showToast("Toutes les sourates sont lues pour ce cycle.");
-  const targetCount = { 10: 2, 20: 3, 30: 4 }[getSelectedMinutes()] || 2;
-  state.currentPlan = unread.sort(() => Math.random() - 0.5).slice(0, targetCount);
-  renderDailyReading(state, { onNote: openNoteModal });
-  showToast("Lecture du jour generee.");
+  if (!unread.length) {
+    const prestige = maybePrestige();
+    if (prestige) {
+      persist();
+      render();
+    } else {
+      showToast("Toutes les sourates sont lues pour ce cycle.");
+    }
+    return;
+  }
+  const list = document.getElementById("dailyReadingList");
+  list.innerHTML = '<li class="skeleton-line"></li><li class="skeleton-line"></li>';
+  setTimeout(() => {
+    state.currentPlan = buildReadingPlan(unread, getSelectedMinutes(), console);
+    renderDailyReading(state, { onNote: openNoteModal });
+    showToast("Lecture du jour generee.");
+  }, 220);
 }
 
 function completeDailyReading() {
@@ -145,24 +165,27 @@ function completeDailyReading() {
 
 function toggleSurahRead(id) {
   const surah = surahMap.get(id);
-  const iso = new Date().toISOString();
-  if (state.data.progress.readSurahs.includes(id)) markSurahAsUnread(state.data, id, surah.nomFr, iso);
-  else {
-    markSurahAsRead(state.data, id, surah.nomFr, iso);
-    state.data.profile.stats.totalSurahsValidated += 1;
-    if (surah.categorie === "Longue") state.data.badges.firstLongCompleted = true;
+  if (state.data.progress.readSurahs.includes(id)) {
+    showConfirm("Retirer cette sourate de la progression ?").then(async (ok) => {
+      if (!ok) return;
+      const iso = new Date().toISOString();
+      markSurahAsUnread(state.data, id, surah.nomFr, iso);
+      updateStreak(iso);
+      maybePrestige();
+      evaluateBadges(state.data, showAchievementBanner);
+      persist();
+      render();
+    });
+    return;
   }
-  updateStreak(iso);
-  maybePrestige();
-  evaluateBadges(state.data, showAchievementBanner);
-  persist();
-  render();
+  openMarkDateModal(id);
 }
 
 function openNoteModal(surahId) {
   state.activeNoteSurahId = surahId;
   state.activeEditNoteId = null;
   openNotesModal(surahMap.get(surahId), state.data, noteHandlers());
+  document.getElementById("noteCharCount").textContent = "0";
   renderSurahNotesList(state.data, state.activeNoteSurahId, noteHandlers());
 }
 
@@ -171,12 +194,16 @@ function noteHandlers() {
     onEdit(note) {
       state.activeEditNoteId = note.id;
       document.getElementById("noteInput").value = note.text;
+      document.getElementById("noteCharCount").textContent = String(note.text.length);
       document.getElementById("noteFavoriteToggle").checked = !!note.favorite;
     },
     onDelete(noteId) {
-      deleteNote(state.data, state.activeNoteSurahId, noteId);
-      persist();
-      openNoteModal(state.activeNoteSurahId);
+      showConfirm("Supprimer cette note ?").then(async (ok) => {
+        if (!ok) return;
+        deleteNote(state.data, state.activeNoteSurahId, noteId);
+        persist();
+        openNoteModal(state.activeNoteSurahId);
+      });
     }
   };
 }
@@ -186,6 +213,7 @@ function saveCurrentNote() {
   const text = document.getElementById("noteInput").value.trim();
   const favorite = document.getElementById("noteFavoriteToggle").checked;
   if (!text) return showToast("Ecris une note avant d'enregistrer.");
+  if (text.length > 2000) return showToast("Maximum 2000 caracteres.");
   if (state.activeEditNoteId) {
     updateNote(state.data, state.activeNoteSurahId, state.activeEditNoteId, text, favorite);
     state.activeEditNoteId = null;
@@ -193,17 +221,99 @@ function saveCurrentNote() {
     addNote(state.data, state.activeNoteSurahId, text, favorite);
   }
   document.getElementById("noteInput").value = "";
+  document.getElementById("noteCharCount").textContent = "0";
   document.getElementById("noteFavoriteToggle").checked = false;
   persist();
   openNoteModal(state.activeNoteSurahId);
 }
 
+function openMarkDateModal(surahId) {
+  state.pendingMarkSurahId = surahId;
+  const surah = surahMap.get(surahId);
+  document.getElementById("markDateModalSurah").textContent = `${surahId}. ${surah?.nomFr || ""}`;
+  document.getElementById("markCustomDateInput").value = "";
+  document.getElementById("markDateModal").classList.remove("hidden");
+}
+
+function closeMarkDateModal() {
+  state.pendingMarkSurahId = null;
+  document.getElementById("markDateModal").classList.add("hidden");
+}
+
+function resolveMarkDate() {
+  const choice = document.querySelector("input[name='markDateChoice']:checked")?.value || "today";
+  const now = new Date();
+  if (choice === "today") return now;
+  if (choice === "yesterday") {
+    now.setDate(now.getDate() - 1);
+    return now;
+  }
+  const custom = document.getElementById("markCustomDateInput").value;
+  const customDate = custom ? new Date(`${custom}T12:00:00`) : now;
+  return Number.isNaN(customDate.getTime()) ? now : customDate;
+}
+
+function confirmMarkDate() {
+  const surahId = state.pendingMarkSurahId;
+  if (!surahId) return;
+  const surah = surahMap.get(surahId);
+  const iso = resolveMarkDate().toISOString();
+  markSurahAsRead(state.data, surahId, surah.nomFr, iso);
+  state.data.profile.stats.totalSurahsValidated += 1;
+  if (surah.categorie === "Longue") state.data.badges.firstLongCompleted = true;
+  updateStreak(iso);
+  maybePrestige();
+  evaluateBadges(state.data, showAchievementBanner);
+  persist();
+  closeMarkDateModal();
+  render();
+}
+
+function showConfirm(text) {
+  const modal = document.getElementById("confirmModal");
+  const textEl = document.getElementById("confirmModalText");
+  const okBtn = document.getElementById("confirmOkBtn");
+  const cancelBtn = document.getElementById("confirmCancelBtn");
+  textEl.textContent = text || "Es-tu sur ?";
+  modal.classList.remove("hidden");
+  return new Promise((resolve) => {
+    const close = () => modal.classList.add("hidden");
+    const okHandler = () => {
+      close();
+      okBtn.removeEventListener("click", okHandler);
+      cancelBtn.removeEventListener("click", cancelHandler);
+      resolve(true);
+    };
+    const cancelHandler = () => {
+      close();
+      okBtn.removeEventListener("click", okHandler);
+      cancelBtn.removeEventListener("click", cancelHandler);
+      resolve(false);
+    };
+    okBtn.addEventListener("click", okHandler);
+    cancelBtn.addEventListener("click", cancelHandler);
+  });
+}
+
 function render() {
-  renderTop(state.data, TOTAL_SURAHS);
+  const weighted = computeWeightedProgress(state.data.progress.readSurahs, surahs);
+  renderTop(state.data, TOTAL_SURAHS, weighted);
   renderSearchResults(state.data, surahs, state.query, { onToggleRead: toggleSurahRead, onNote: openNoteModal });
   renderDailyReading(state, { onNote: openNoteModal });
   renderHistory(state.data, surahMap);
-  renderProfile(state.data, TOTAL_SURAHS);
+  renderProfile(state.data, TOTAL_SURAHS, weighted, formatWeightedLabel(weighted));
+  renderWidgets(getHomeWidgets(state.data, weighted), {
+    onAction(widgetId) {
+      if (widgetId === "daily") switchView("prier");
+    }
+  });
+  renderFriends(friendsService.getFriends(), {
+    canEncourage: (friendId) => friendsService.canEncourage(friendId),
+    onEncourage(friendId) {
+      friendsService.encourage(friendId);
+      render();
+    }
+  });
   renderBadges(state.data);
   renderMonthlyHeatmap(state.data, "heatmapRoot", showToast);
   renderMonthlyHeatmap(state.data, "heatmapProfileRoot", showToast);
@@ -218,19 +328,21 @@ function render() {
 }
 
 function runFullReset() {
-  if (!confirm("Es-tu sûr de vouloir réinitialiser ?")) return;
-  const keepNotes = confirm("Veux-tu conserver tes notes ? (Oui / Non)");
-  const notesBackup = keepNotes ? JSON.parse(JSON.stringify(state.data.notes || {})) : {};
-  clearAll();
-  state.data = validateData({});
-  state.data.notes = notesBackup;
-  state.currentPlan = [];
-  state.query = "";
-  state.activeNoteSurahId = null;
-  state.activeEditNoteId = null;
-  persist();
-  showToast("Réinitialisation terminée.");
-  window.location.reload();
+  showConfirm("Reset total: continuer ?").then(async (ok) => {
+    if (!ok) return;
+    const keepNotes = await showConfirm("Conserver les notes existantes ?");
+    const notesBackup = keepNotes ? JSON.parse(JSON.stringify(state.data.notes || {})) : {};
+    clearAll();
+    state.data = validateData({});
+    state.data.notes = notesBackup;
+    state.currentPlan = [];
+    state.query = "";
+    state.activeNoteSurahId = null;
+    state.activeEditNoteId = null;
+    persist();
+    showToast("Reinitialisation terminee.");
+    window.location.reload();
+  });
 }
 
 async function requestNotificationPermission() {
@@ -325,6 +437,9 @@ function bindEvents() {
   document.getElementById("completeBtn").addEventListener("click", completeDailyReading);
   document.getElementById("notesSortSelect").addEventListener("change", render);
   document.getElementById("saveNoteBtn").addEventListener("click", saveCurrentNote);
+  document.getElementById("noteInput").addEventListener("input", (e) => {
+    document.getElementById("noteCharCount").textContent = String((e.target.value || "").length);
+  });
   document.getElementById("closeNotesBtn").addEventListener("click", () => {
     state.activeNoteSurahId = null;
     state.activeEditNoteId = null;
@@ -332,6 +447,19 @@ function bindEvents() {
   });
   document.getElementById("settingsOpenBtn").addEventListener("click", () => document.getElementById("settingsModal").classList.remove("hidden"));
   document.getElementById("closeSettingsBtn").addEventListener("click", () => document.getElementById("settingsModal").classList.add("hidden"));
+  document.getElementById("closeMarkDateBtn").addEventListener("click", closeMarkDateModal);
+  document.getElementById("cancelMarkDateBtn").addEventListener("click", closeMarkDateModal);
+  document.getElementById("confirmMarkDateBtn").addEventListener("click", confirmMarkDate);
+  document.getElementById("addFriendBtn").addEventListener("click", () => {
+    showConfirm("Ajouter un ami mock (pseudo/code) ?").then(async (ok) => {
+      if (!ok) return;
+      const name = prompt("Pseudo ou code ami");
+      if (!name) return;
+      friendsService.addFriend(name);
+      showToast("Ami ajoute.");
+      render();
+    });
+  });
   document.getElementById("themeToggle").addEventListener("change", (e) => {
     state.data.settings.theme = e.target.checked ? "light" : "dark";
     persist();
@@ -429,6 +557,7 @@ function launchConfetti(count) {
 }
 
 evaluateBadges(state.data, showAchievementBanner);
+friendsService = createFriendsService(state.data, persist, showToast);
 bindEvents();
 render();
 setRandomQuote();

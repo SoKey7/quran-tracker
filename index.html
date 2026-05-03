@@ -73,6 +73,13 @@
           <h2>Widgets (préparation écran d'accueil)</h2>
           <div id="widgetsRoot" class="widgets-grid"></div>
         </article>
+        <article class="card glass">
+          <div class="card-head">
+            <h2>👥 Amis</h2>
+            <button class="secondary-btn" id="addFriendBtn">Ajouter ami</button>
+          </div>
+          <div id="friendsRoot" class="friends-grid"></div>
+        </article>
 
         <article class="card glass">
           <h2>Heatmap mensuelle</h2>
@@ -141,8 +148,10 @@
         </article>
 
         <article class="card glass">
-          <button class="danger-btn" id="manualResetBtn">Reset manuel (lectures)</button>
-          <button class="danger-btn" id="hardResetAllBtn">Réinitialiser totalement</button>
+          <div class="reset-actions">
+            <button class="danger-btn" id="manualResetBtn">Reset progression</button>
+            <button class="danger-btn" id="hardResetAllBtn">Reset total</button>
+          </div>
         </article>
       </section>
     </main>
@@ -189,7 +198,10 @@
         <label class="setting-item"><span>Hier</span><input type="radio" name="markDateChoice" value="yesterday"></label>
         <label class="setting-item"><span>Choisir date</span><input type="radio" name="markDateChoice" value="custom"></label>
         <label class="setting-item"><span>Date personnalisée</span><input type="date" id="markCustomDateInput"></label>
-        <button class="success-btn" id="confirmMarkDateBtn">Valider</button>
+        <div class="modal-actions">
+          <button class="secondary-btn" id="cancelMarkDateBtn">Annuler</button>
+          <button class="success-btn" id="confirmMarkDateBtn">OK</button>
+        </div>
       </div>
     </div>
   </div>
@@ -200,20 +212,34 @@
   <div id="confettiContainer"></div>
 
   <div class="modal-backdrop hidden" id="notesModal">
-    <div class="modal glass">
-      <div class="modal-header">
+    <div class="modal glass notes-modal">
+      <div class="modal-header notes-modal-header">
         <h3 id="notesModalTitle">Notes de sourate</h3>
-        <button id="closeNotesBtn" class="icon-btn">✖</button>
+        <button id="closeNotesBtn" class="icon-btn sticky-close-btn">✖</button>
       </div>
-      <div class="settings-list">
+      <div class="settings-list notes-modal-content">
         <label class="setting-item">
           <span>Favori</span>
           <input type="checkbox" id="noteFavoriteToggle">
         </label>
-        <textarea id="noteInput" rows="4" placeholder="Ajouter une note..." class="note-input"></textarea>
-        <button class="primary-btn" id="saveNoteBtn">Enregistrer la note</button>
+        <textarea id="noteInput" rows="5" maxlength="2000" placeholder="Ajouter une note..." class="note-input"></textarea>
+        <div class="notes-counter muted"><span id="noteCharCount">0</span>/2000</div>
+        <button class="primary-btn sticky-save-btn" id="saveNoteBtn">Sauvegarder</button>
       </div>
       <div id="surahNotesList" class="notes-list"></div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop hidden" id="confirmModal">
+    <div class="modal glass">
+      <div class="modal-header">
+        <h3>Es-tu sûr ?</h3>
+      </div>
+      <p id="confirmModalText" class="muted"></p>
+      <div class="modal-actions">
+        <button class="secondary-btn" id="confirmCancelBtn">Annuler</button>
+        <button class="success-btn" id="confirmOkBtn">OK</button>
+      </div>
     </div>
   </div>
 
